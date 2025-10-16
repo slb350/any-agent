@@ -261,9 +261,9 @@ See `docs/implementation.md` for detailed implementation steps.
 ### Phase 1: Core MVP (Week 1)
 - ✅ Project setup (pyproject.toml, structure)
 - ✅ `types.py` - AgentOptions, message types
-- 🔨 `utils.py` - OpenAI client wrapper
-- 🔨 `client.py` - Simple `query()` function
-- 🔨 Test with LM Studio
+- ✅ `utils.py` - OpenAI client wrapper with ToolCallAggregator
+- ✅ `client.py` - Simple `query()` function
+- 🔨 Test with LM Studio (ready to test with running server)
 
 ### Phase 2: Multi-Turn Support (Week 2)
 - 🔨 `Client` class for multi-turn conversations
