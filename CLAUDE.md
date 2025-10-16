@@ -266,8 +266,10 @@ See `docs/implementation.md` for detailed implementation steps.
 - 🔨 Test with LM Studio (ready to test with running server)
 
 ### Phase 2: Multi-Turn Support (Week 2)
-- 🔨 `Client` class for multi-turn conversations
-- 🔨 Tool use monitoring
+- ✅ `Client` class for multi-turn conversations
+- ✅ Tool use monitoring (via ToolUseBlock yielding)
+- ✅ Message history tracking with OpenAI-compatible format
+- ✅ ollama_chat.py example
 - 🔨 Test with market_analysis-like workflow
 
 ### Phase 3: Polish & Port (Week 3)
