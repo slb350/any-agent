@@ -1,258 +1,257 @@
-# Any-Agent Framework Project
+# Any-Agent SDK Project
 
 ## Project Overview
 
-**Goal**: Build an Agent SDK layer that brings Claude Agent SDK-style capabilities to any LLM provider.
+**Goal**: Claude Agent SDK-style API for local/self-hosted LLMs via OpenAI-compatible endpoints.
 
-**Vision**: A lightweight, opinionated agent framework that sits on top of LiteLLM, adding the missing "agent" features:
-- Context management (automatic token budget handling)
-- Tool framework and registry
-- Session management and conversation state
-- Memory and persistence
-- Claude SDK-style ergonomics
+**Problem**: I love the `claude-agent-sdk` workflow for building agents, but want to use my local Qwen/Llama/Mistral models instead of paying for Claude API.
 
-**Architecture Decision**: Use LiteLLM for provider abstraction (already solved), focus on agent-layer features.
+**Solution**: A lightweight SDK that provides the same ergonomics as `claude-agent-sdk`, but for OpenAI-compatible local model servers.
 
 ```
 ┌─────────────────────────────────────┐
 │   Your Application / Agent Code     │
+│   (Copy Editor, Market Analysis)    │
 └─────────────────┬───────────────────┘
                   │
 ┌─────────────────▼───────────────────┐
 │      Any-Agent SDK (This Project)   │
-│  - Agent class with query()         │
-│  - Context management               │
-│  - Tool framework                   │
-│  - Session management               │
-│  - Memory/persistence               │
+│  - query() function                 │
+│  - Client class (multi-turn)        │
+│  - AgentOptions                     │
+│  - Tool monitoring/streaming        │
 └─────────────────┬───────────────────┘
                   │
 ┌─────────────────▼───────────────────┐
-│         LiteLLM (Dependency)        │
-│  - Provider abstraction (100+)      │
-│  - OpenAI-compatible interface      │
-│  - Model routing                    │
+│      OpenAI Python Client           │
+│  (for async streaming)              │
 └─────────────────┬───────────────────┘
                   │
 ┌─────────────────▼───────────────────┐
-│  Providers (OpenAI, Ollama, etc.)   │
+│  Local Model Servers                │
+│  - LM Studio (localhost:1234)       │
+│  - Ollama (localhost:11434)         │
+│  - llama.cpp server                 │
+│  - vLLM, Text Gen WebUI, etc.       │
 └─────────────────────────────────────┘
 ```
 
-## Scope: What We're Building vs Using
+## Scope: In vs Out
 
-### Using LiteLLM For (Out of Scope)
-✅ Provider routing and abstraction
-✅ Model-specific API differences
-✅ Rate limiting and retries (basic)
-✅ OpenAI-compatible interface
-✅ Support for 100+ providers
+### Supported Providers (In Scope)
+✅ **LM Studio** - http://localhost:1234/v1
+✅ **Ollama** - http://localhost:11434
+✅ **llama.cpp server** - OpenAI-compatible mode
+✅ **vLLM** - OpenAI-compatible API
+✅ **Text Generation WebUI** - OpenAI extension
+✅ **Any OpenAI-compatible local endpoint**
 
-### Building in Any-Agent (In Scope)
-🎯 **Agent Class**: Claude SDK-style API (`query()`, `AgentOptions`)
-🎯 **Context Management**: Automatic token budget, sliding windows, message prioritization
-🎯 **Tool Framework**: Tool registry, execution orchestration, result handling
-🎯 **Session Management**: Stateful conversations, turn tracking, context restoration
-🎯 **Memory Layer**: SQLite persistence, interaction history, retrieval
-🎯 **Streaming Abstraction**: Unified streaming interface across providers
+### NOT Supported (Out of Scope)
+❌ **Claude** - Use `claude-agent-sdk` instead
+❌ **OpenAI** - Use their official SDK
+❌ **Cloud Providers** - Bedrock, Vertex, Azure, etc.
+
+This SDK is **specifically for local/self-hosted open-source models**.
+
+### Core Features (In Scope)
+🎯 **Simple query() function** - Single-turn requests
+🎯 **Client class** - Multi-turn conversations with tool monitoring
+🎯 **AgentOptions** - Configuration matching claude-agent-sdk
+🎯 **Streaming support** - Async iteration over responses
+🎯 **Tool use monitoring** - Track what tools the agent calls
+🎯 **Message types** - Compatible with claude-agent-sdk patterns
+
+### Advanced Features (Maybe Later)
+⏳ Context window management
+⏳ Automatic message history trimming
+⏳ Session persistence
+⏳ Memory/RAG integration
 
 ## Core Architecture
 
-### API Design (Claude SDK-inspired)
+### API Design (Matching claude-agent-sdk)
 
+**Simple Query (like your copy_editor agent):**
 ```python
-from any_agent import Agent, AgentOptions
+from any_agent import query, AgentOptions
 
-# Simple stateless query
-agent = Agent(model="gpt-4", provider="openai")
-response = await agent.query("Analyze this text...")
-
-# With options
-agent = Agent(
-    model="ollama/llama3.1",
-    options=AgentOptions(
-        system_prompt="You are a helpful assistant",
-        max_tokens=4000,
-        context_strategy="sliding",
-        temperature=0.7
-    )
+# Configure for your local LM Studio instance
+options = AgentOptions(
+    system_prompt="You are a professional copy editor...",
+    model="qwen2.5-32b-instruct",
+    base_url="http://localhost:1234/v1",
+    max_turns=1,
+    temperature=0.1
 )
-response = await agent.query("Hello!")
 
-# With tools
-@agent.tool("search_docs")
-async def search_docs(query: str) -> str:
-    """Search documentation for relevant info"""
-    return search_results
+# Query the model (streaming response)
+result = query(prompt=user_prompt, options=options)
 
-response = await agent.query("Find info about async in docs")
-
-# Stateful session
-session = await agent.create_session()
-await session.send("What's the capital of France?")
-response1 = await session.receive()
-
-await session.send("What's its population?")  # Has context!
-response2 = await session.receive()
+# Extract response
+response_text = ""
+async for msg in result:
+    response_text += extract_response_text(msg)
 ```
 
-### Key Components We're Building
-
-1. **Agent Core** (`any_agent/agent.py`)
-   - Query orchestration
-   - Options management
-   - LiteLLM integration wrapper
-
-2. **Context Manager** (`any_agent/context.py`)
-   - Token counting per model family
-   - Message history management
-   - Sliding window / truncation strategies
-
-3. **Tool Framework** (`any_agent/tools.py`)
-   - Tool decorator and registry
-   - Execution engine
-   - Result validation
-
-4. **Session Manager** (`any_agent/session.py`)
-   - Conversation state
-   - Turn tracking
-   - Context restoration
-
-5. **Memory Store** (`any_agent/memory.py`)
-   - SQLite persistence
-   - Interaction logging
-   - History retrieval
-
-## Technical Considerations
-
-### Token Counting
-- Model-specific tokenizers (tiktoken for GPT, HuggingFace for open models)
-- Context window management per model (4k-128k)
-
-### Output Format
-- JSON output with schema validation recommended for structured responses
-- Streaming support for real-time output
-
-### Local Model Support
-- LM Studio (http://localhost:1234/v1)
-- Ollama (http://localhost:11434)
-- Recommended models: Llama 3.1, Qwen 2.5, Mistral/Mixtral
-
-### Configuration
-```yaml
-analysis_defaults:
-  provider: "openai"  # or "claude"
-  model: "qwen2.5-32b-instruct"
-  base_url: "http://localhost:1234/v1"
-  temperature: 0.1
-  max_tokens: 8000
-```
-
-## Implementation Roadmap
-
-See `docs/implementation.md` for the complete phase-by-phase implementation plan with detailed steps, code examples, and success criteria.
-
-### High-Level Phases
-
-**Phase 1: Foundation**
-- Core Agent class with LiteLLM integration
-- Basic query functionality
-- Provider detection and retry logic
-
-**Phase 2: Context Management**
-- Token counting per model
-- Sliding window and truncation strategies
-- Automatic context optimization
-
-**Phase 3: Tool Framework**
-- Tool registration and decorator
-- Execution engine with timeout handling
-- Parallel tool execution
-
-**Phase 4: Session Management**
-- Stateful conversation support
-- Context preservation and restoration
-- Session persistence
-
-**Phase 5: Memory & Persistence**
-- SQLite storage for interactions
-- Search and analytics
-- Interaction history
-
-**Phase 6: Polish & Documentation**
-- Production-ready error handling
-- Comprehensive documentation
-- Example agents and test suite
-
-## Design Decisions to Make
-
-### 1. Tool Invocation Pattern
-**Option A**: Let LiteLLM handle function calling (if model supports it)
-**Option B**: Build our own tool orchestration (emulate for models without native support)
-**Decision needed**: Which approach for MVP?
-
-### 2. Context Strategy Default
-- Sliding window (keep recent N messages)
-- Summarization (compress old messages)
-- Truncation (drop oldest)
-**Decision needed**: What's the sensible default?
-
-### 3. Streaming API
+**Multi-Turn Client (like your market_analysis agent):**
 ```python
-# Option A: Always async iterator
-async for chunk in agent.query_stream(prompt):
-    print(chunk)
+from any_agent import Client, AgentOptions
 
-# Option B: Flag on query()
-response = await agent.query(prompt, stream=True)
+options = AgentOptions(
+    system_prompt="You are a market analyst...",
+    model="llama-3.1-70b",
+    base_url="http://localhost:1234/v1",
+    max_turns=50
+)
+
+async with Client(options) as client:
+    # Send initial query
+    await client.query(user_prompt)
+
+    # Process streaming responses
+    async for msg in client.receive_messages():
+        if isinstance(msg, TextBlock):
+            print(f"Agent: {msg.text}")
+
+        elif isinstance(msg, ToolUseBlock):
+            # Log tool usage
+            log_tool_use(msg.name, msg.input)
 ```
-**Decision needed**: Which feels more ergonomic?
 
-### 4. Session Persistence
-- Auto-save after every interaction (overhead)
-- Manual save (requires `session.save()`)
-- Lazy/background (eventual consistency)
-**Decision needed**: Balance between safety and performance?
+**Configuration Options:**
+```python
+class AgentOptions:
+    system_prompt: str           # System prompt
+    model: str                   # Model name (e.g., "qwen2.5-32b-instruct")
+    base_url: str               # Endpoint (e.g., "http://localhost:1234/v1")
+    max_turns: int = 1          # Max conversation turns
+    max_tokens: int = 8000      # Max tokens to generate
+    temperature: float = 0.7    # Sampling temperature
+    api_key: str = "not-needed" # Most local servers don't need this
+```
 
-### 5. Project Structure
+### Key Components
+
+1. **client.py** - Main query() function and Client class
+   - `query()` - Single-turn requests
+   - `Client` - Multi-turn conversations with context
+   - Streaming response handling
+
+2. **types.py** - Message types and options
+   - `AgentOptions` - Configuration dataclass
+   - `TextBlock` - Text content from model
+   - `ToolUseBlock` - Tool calls from model
+   - `AssistantMessage` - Full message wrapper
+
+3. **utils.py** - OpenAI client helpers
+   - Create AsyncOpenAI client
+   - Format messages for API
+   - Extract response blocks
+
+## Project Structure
+
 ```
 any-agent/
 ├── any_agent/
-│   ├── __init__.py
-│   ├── agent.py       # Core Agent class
-│   ├── context.py     # ContextManager
-│   ├── tools.py       # Tool framework
-│   ├── session.py     # Session management
-│   └── memory.py      # Persistence
+│   ├── __init__.py      # Main exports: query, Client, AgentOptions
+│   ├── client.py        # query() and Client class
+│   ├── types.py         # Message types and AgentOptions
+│   └── utils.py         # OpenAI client helpers
 ├── examples/
-│   ├── simple_query.py
-│   ├── copy_editor.py
-│   └── chatbot.py
+│   ├── simple_lmstudio.py      # Simple query example
+│   ├── ollama_chat.py          # Ollama multi-turn
+│   └── copy_editor_port.py     # Port of stories copy_editor agent
 ├── tests/
+│   ├── test_query.py
+│   └── test_client.py
 ├── pyproject.toml
-└── README.md
+├── README.md
+└── LICENSE
 ```
-**Decision needed**: Does this structure work?
+
+## Implementation Plan
+
+See `docs/implementation.md` for detailed implementation steps.
+
+### Phase 1: Core MVP (Week 1)
+- ✅ Project setup (pyproject.toml, structure)
+- 🔨 `types.py` - AgentOptions, message types
+- 🔨 `utils.py` - OpenAI client wrapper
+- 🔨 `client.py` - Simple `query()` function
+- 🔨 Test with LM Studio
+
+### Phase 2: Multi-Turn Support (Week 2)
+- 🔨 `Client` class for multi-turn conversations
+- 🔨 Tool use monitoring
+- 🔨 Test with market_analysis-like workflow
+
+### Phase 3: Polish & Port (Week 3)
+- 🔨 Port copy_editor agent as validation
+- 🔨 Documentation and examples
+- 🔨 PyPI package setup
+
+## Recommended Local Models
+
+**Fast & Efficient:**
+- Qwen 2.5 7B/14B/32B (excellent instruction following)
+- Llama 3.2 3B/8B (good for simple tasks)
+- Mistral 7B v0.3 (solid all-around)
+
+**Larger/Better:**
+- Qwen 2.5 72B (near GPT-4 quality)
+- Llama 3.1 70B (very capable)
+- DeepSeek-V3 (if you have the VRAM)
+
+**For Copy Editing:**
+- Qwen 2.5 32B+ (excellent for detailed analysis)
+- Command-R+ 104B (if resources allow)
 
 ## Success Criteria
 
 The SDK is successful when:
-- ✅ Simpler than LangChain for 80% of agent use cases
-- ✅ Works with any LiteLLM-supported provider (100+)
-- ✅ Automatic context management (developer doesn't think about tokens)
-- ✅ Claude SDK-style ergonomics (familiar to Claude users)
-- ✅ Copy Editor agent ports cleanly
-- ✅ Can build production agents in < 100 lines of code
-- ✅ Clear documentation and examples
+- ✅ Drop-in replacement for `claude-agent-sdk` imports
+- ✅ Works with LM Studio, Ollama, llama.cpp out of the box
+- ✅ Copy Editor agent ports with < 5 lines changed
+- ✅ Market Analysis agent ports with minimal changes
+- ✅ Clear documentation with local model examples
+- ✅ Can build new agents using familiar patterns
 
-## Value Proposition vs Alternatives
+## Why Not Just Use OpenAI Client Directly?
 
-| Need | LiteLLM Alone | LangChain | Any-Agent |
-|------|---------------|-----------|-----------|
-| Switch providers | ✅ | ✅ | ✅ |
-| Automatic context mgmt | ❌ | Manual | ✅ |
-| Simple stateless queries | ✅ | Complex | ✅ |
-| Stateful sessions | ❌ | Via memory | ✅ |
-| Tool orchestration | ❌ | ✅ | ✅ |
-| Learning curve | Low | High | Low |
-| Lines of code (typical agent) | 50 | 150 | 30 |
+**Without any-agent:**
+```python
+from openai import AsyncOpenAI
+
+client = AsyncOpenAI(base_url="http://localhost:1234/v1", api_key="not-needed")
+response = await client.chat.completions.create(
+    model="qwen2.5-32b-instruct",
+    messages=[
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt}
+    ],
+    stream=True
+)
+
+async for chunk in response:
+    # Complex parsing of chunks
+    # Extract delta content
+    # Handle tool calls manually
+```
+
+**With any-agent:**
+```python
+from any_agent import query, AgentOptions
+
+options = AgentOptions(
+    system_prompt=system_prompt,
+    model="qwen2.5-32b-instruct",
+    base_url="http://localhost:1234/v1"
+)
+
+result = query(prompt=user_prompt, options=options)
+async for msg in result:
+    # Clean message types (TextBlock, ToolUseBlock)
+    # Same pattern as claude-agent-sdk
+```
+
+**Value**: Familiar patterns + Less boilerplate + Easy migration
