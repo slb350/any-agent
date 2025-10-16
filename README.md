@@ -15,16 +15,20 @@ Any-Agent SDK provides a lightweight wrapper around OpenAI-compatible local mode
 
 ## Supported Providers
 
-✅ **LM Studio** - http://localhost:1234/v1
-✅ **Ollama** - http://localhost:11434/v1
-✅ **llama.cpp server** - OpenAI-compatible mode
-✅ **vLLM** - OpenAI-compatible API
-✅ **Text Generation WebUI** - OpenAI extension
-✅ **Any OpenAI-compatible local endpoint**
-✅ **Local gateways proxying cloud models** (e.g., Ollama or other OpenAI-compatible gateways configured to call remote models)
+### ✅ Supported (OpenAI-Compatible Endpoints)
 
-❌ **Not a direct client for Claude/OpenAI** — use their SDKs directly unless you proxy through a local OpenAI-compatible gateway
-❌ **Not a direct client for cloud providers** — works if proxied via a local gateway exposing an OpenAI-compatible API
+- **LM Studio** - `http://localhost:1234/v1`
+- **Ollama** - `http://localhost:11434/v1`
+- **llama.cpp server** - OpenAI-compatible mode
+- **vLLM** - OpenAI-compatible API
+- **Text Generation WebUI** - OpenAI extension
+- **Any OpenAI-compatible local endpoint**
+- **Local gateways proxying cloud models** - e.g., Ollama or custom gateways that route to cloud providers
+
+### ❌ Not Supported (Use Official SDKs)
+
+- **Claude/OpenAI direct** - Use their official SDKs, unless you proxy through a local OpenAI-compatible gateway
+- **Cloud provider SDKs** - Bedrock, Vertex, Azure, etc. (proxied via local gateway is fine)
 
 ## Quick Start
 
