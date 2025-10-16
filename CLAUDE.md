@@ -263,14 +263,14 @@ See `docs/implementation.md` for detailed implementation steps.
 - ✅ `types.py` - AgentOptions, message types
 - ✅ `utils.py` - OpenAI client wrapper with ToolCallAggregator
 - ✅ `client.py` - Simple `query()` function
-- 🔨 Test with LM Studio (ready to test with running server)
+- ✅ Test with LM Studio - verified working with network server
 
 ### Phase 2: Multi-Turn Support (Week 2)
 - ✅ `Client` class for multi-turn conversations
 - ✅ Tool use monitoring (via ToolUseBlock yielding)
 - ✅ Message history tracking with OpenAI-compatible format
 - ✅ ollama_chat.py example
-- 🔨 Test with market_analysis-like workflow
+- ✅ Multi-turn context verified working with LM Studio
 
 ### Phase 3: Polish & Port (Week 3)
 - 🔨 Port copy_editor agent as validation
