@@ -1,8 +1,10 @@
 # Configuration Guide
 
-Any-Agent SDK supports multiple ways to configure the server endpoint, making it easy to switch between local and network servers without changing code.
+Any-Agent SDK supports multiple ways to configure both the server endpoint and model, making it easy to switch between development and production without changing code.
 
 ## Configuration Methods
+
+### Base URL Resolution
 
 The SDK resolves `base_url` in this priority order:
 
@@ -10,6 +12,14 @@ The SDK resolves `base_url` in this priority order:
 2. **Environment variable** `ANY_AGENT_BASE_URL`
 3. **Provider shorthand** (lmstudio, ollama, llamacpp, vllm)
 4. **Default** to LM Studio on localhost
+
+### Model Resolution
+
+The SDK resolves `model` in this priority order:
+
+1. **Explicit parameter** (highest priority)
+2. **Environment variable** `ANY_AGENT_MODEL`
+3. **Required** - raises ValueError if not provided
 
 ## Method 1: Explicit URL
 
@@ -25,13 +35,14 @@ options = AgentOptions(
 )
 ```
 
-## Method 2: Environment Variable
+## Method 2: Environment Variables
 
 Set once, use everywhere:
 
 ```bash
 # In your shell or .env file
 export ANY_AGENT_BASE_URL="https://lmstudio.localbrandonfamily.com/v1"
+export ANY_AGENT_MODEL="qwen/qwen3-30b-a3b-2507"
 ```
 
 Then in Python:
@@ -39,12 +50,16 @@ Then in Python:
 ```python
 from any_agent import AgentOptions
 
-# No base_url needed - uses environment variable
+# No configuration needed - uses environment variables
 options = AgentOptions(
-    system_prompt="You are a helpful assistant.",
-    model="qwen2.5-32b-instruct"
+    system_prompt="You are a helpful assistant."
 )
 ```
+
+**Benefits:**
+- Easy to switch between dev/prod environments
+- No hardcoded URLs or model names in code
+- Can be set in CI/CD pipelines or .env files
 
 ## Method 3: Provider Shorthand
 
@@ -219,21 +234,22 @@ def test_agent():
 
 ## Complete Example
 
+### Full Environment Variable Configuration
+
+```bash
+# Set environment variables
+export ANY_AGENT_BASE_URL="https://lmstudio.localbrandonfamily.com/v1"
+export ANY_AGENT_MODEL="qwen/qwen3-30b-a3b-2507"
+```
+
 ```python
 import asyncio
 from any_agent import query, AgentOptions, TextBlock
 
 async def main():
-    # Configure once, multiple ways to set base_url:
-    # 1. Set ANY_AGENT_BASE_URL environment variable, or
-    # 2. Use provider="ollama", or
-    # 3. Use base_url="http://...", or
-    # 4. Let it default to localhost:1234
-
+    # No hardcoded configuration!
     options = AgentOptions(
-        system_prompt="You are a helpful assistant.",
-        model="qwen2.5-32b-instruct",
-        # No base_url needed if env var is set
+        system_prompt="You are a helpful assistant."
     )
 
     result = query(prompt="What is 2+2?", options=options)
@@ -244,4 +260,26 @@ async def main():
                 print(block.text, end="", flush=True)
 
 asyncio.run(main())
+```
+
+### Explicit Configuration (Override Everything)
+
+```python
+options = AgentOptions(
+    system_prompt="...",
+    model="qwen2.5-32b-instruct",           # Explicit model
+    base_url="http://server:1234/v1"       # Explicit URL
+)
+```
+
+### Mixed Configuration
+
+```python
+# Use env var for server, explicit for model
+export ANY_AGENT_BASE_URL="https://server.com/v1"
+
+options = AgentOptions(
+    system_prompt="...",
+    model="qwen2.5-32b-instruct"  # Override model per agent
+)
 ```

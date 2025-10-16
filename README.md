@@ -102,19 +102,19 @@ asyncio.run(main())
 
 ## Configuration
 
-Any-Agent SDK supports flexible configuration for server endpoints:
+Any-Agent SDK supports flexible configuration via environment variables, provider shortcuts, or explicit parameters:
 
-### Environment Variable (Recommended)
+### Environment Variables (Recommended)
 
 ```bash
 export ANY_AGENT_BASE_URL="https://lmstudio.localbrandonfamily.com/v1"
+export ANY_AGENT_MODEL="qwen/qwen3-30b-a3b-2507"
 ```
 
 ```python
-# No base_url needed - uses environment variable
+# No hardcoded configuration needed!
 options = AgentOptions(
-    system_prompt="...",
-    model="qwen2.5-32b-instruct"
+    system_prompt="..."
 )
 ```
 
@@ -131,12 +131,23 @@ options = AgentOptions(
 
 **Available providers**: `lmstudio`, `ollama`, `llamacpp`, `vllm`
 
-### Priority Order
+### Configuration Priority
 
+**Base URL:**
 1. Explicit `base_url` parameter (highest)
 2. `ANY_AGENT_BASE_URL` environment variable
 3. `provider` shorthand
 4. Default to LM Studio (`http://localhost:1234/v1`)
+
+**Model:**
+1. Explicit `model` parameter (highest)
+2. `ANY_AGENT_MODEL` environment variable
+3. Required - raises error if not provided
+
+**Benefits:**
+- Switch between dev/prod by changing environment variables
+- No hardcoded URLs or model names
+- Per-agent overrides when needed
 
 See [docs/configuration.md](docs/configuration.md) for complete guide.
 

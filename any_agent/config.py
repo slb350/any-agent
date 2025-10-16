@@ -60,6 +60,45 @@ def get_base_url(
     return PROVIDER_DEFAULTS["lmstudio"]
 
 
+def get_model(model: Optional[str] = None) -> Optional[str]:
+    """
+    Get model name from multiple sources with fallback chain:
+    1. Explicit model parameter
+    2. Environment variable ANY_AGENT_MODEL
+    3. Return None (model must be specified somewhere)
+
+    Args:
+        model: Explicit model name (highest priority)
+
+    Returns:
+        Model name string or None
+
+    Examples:
+        >>> get_model("qwen2.5-32b-instruct")
+        'qwen2.5-32b-instruct'
+
+        >>> os.environ["ANY_AGENT_MODEL"] = "llama3.1:70b"
+        >>> get_model()
+        'llama3.1:70b'
+
+    Note:
+        Unlike base_url, there's no sensible default model that works
+        across all providers. Model must be specified explicitly,
+        via environment variable, or in config file.
+    """
+    # 1. Explicit parameter (highest priority)
+    if model:
+        return model
+
+    # 2. Environment variable
+    env_model = os.environ.get("ANY_AGENT_MODEL")
+    if env_model:
+        return env_model
+
+    # 3. No default - model is agent/task specific
+    return None
+
+
 def load_config_file(config_path: Optional[Path] = None) -> dict:
     """
     Load configuration from YAML file.

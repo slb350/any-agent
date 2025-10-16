@@ -2,7 +2,7 @@
 import os
 import pytest
 from pathlib import Path
-from any_agent.config import get_base_url, PROVIDER_DEFAULTS, load_config_file
+from any_agent.config import get_base_url, get_model, PROVIDER_DEFAULTS, load_config_file
 
 
 def test_get_base_url_explicit():
@@ -109,3 +109,32 @@ def test_provider_defaults_format():
     for provider, url in PROVIDER_DEFAULTS.items():
         assert url.startswith("http://") or url.startswith("https://")
         assert "/v1" in url
+
+
+# Model configuration tests
+
+
+def test_get_model_explicit():
+    """Test explicit model has highest priority"""
+    model = get_model(model="qwen2.5-32b-instruct")
+    assert model == "qwen2.5-32b-instruct"
+
+
+def test_get_model_env_var(monkeypatch):
+    """Test environment variable is used when no explicit model"""
+    monkeypatch.setenv("ANY_AGENT_MODEL", "llama3.1:70b")
+    model = get_model()
+    assert model == "llama3.1:70b"
+
+
+def test_get_model_explicit_overrides_env(monkeypatch):
+    """Test explicit model overrides environment variable"""
+    monkeypatch.setenv("ANY_AGENT_MODEL", "llama3.1:70b")
+    model = get_model(model="qwen2.5-32b-instruct")
+    assert model == "qwen2.5-32b-instruct"
+
+
+def test_get_model_none_when_not_set():
+    """Test returns None when no model specified"""
+    model = get_model()
+    assert model is None

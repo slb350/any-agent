@@ -39,15 +39,22 @@ class AgentOptions:
     """
     Configuration for agent.
 
-    The base_url is resolved in this order:
+    Configuration resolution order:
+
+    base_url:
     1. Explicit base_url parameter
     2. Environment variable ANY_AGENT_BASE_URL
     3. Provider default (if provider specified)
     4. Default to LM Studio (http://localhost:1234/v1)
 
+    model:
+    1. Explicit model parameter
+    2. Environment variable ANY_AGENT_MODEL
+    3. Required - raises error if not provided
+
     Args:
         system_prompt: System prompt for the model
-        model: Model name (e.g., "qwen2.5-32b-instruct")
+        model: Model name (optional, uses ANY_AGENT_MODEL env var if not provided)
         base_url: OpenAI-compatible endpoint URL (optional)
         provider: Provider shorthand (lmstudio, ollama, llamacpp, vllm)
         max_turns: Maximum conversation turns
@@ -56,17 +63,22 @@ class AgentOptions:
         api_key: API key (most local servers don't need this)
 
     Examples:
-        # Explicit URL
-        AgentOptions(system_prompt="...", model="...", base_url="http://server:1234/v1")
+        # Explicit everything
+        AgentOptions(system_prompt="...", model="qwen2.5-32b", base_url="http://server:1234/v1")
 
-        # Use environment variable ANY_AGENT_BASE_URL
-        AgentOptions(system_prompt="...", model="...")
+        # Use environment variables
+        # export ANY_AGENT_BASE_URL="https://server.com/v1"
+        # export ANY_AGENT_MODEL="qwen2.5-32b-instruct"
+        AgentOptions(system_prompt="...")
 
-        # Use provider default
-        AgentOptions(system_prompt="...", model="...", provider="ollama")
+        # Mix explicit and environment
+        AgentOptions(system_prompt="...", model="llama3.1:70b", provider="ollama")
+
+    Raises:
+        ValueError: If model is not provided and ANY_AGENT_MODEL is not set
     """
     system_prompt: str
-    model: str
+    model: Optional[str] = None
     base_url: Optional[str] = None
     provider: Optional[str] = None
     max_turns: int = 1
@@ -75,7 +87,21 @@ class AgentOptions:
     api_key: str = "not-needed"
 
     def __post_init__(self):
-        """Resolve base_url from config if not provided"""
+        """Resolve base_url and model from config if not provided"""
+        # Resolve base_url
         if self.base_url is None:
             from .config import get_base_url
             self.base_url = get_base_url(base_url=None, provider=self.provider)
+
+        # Resolve model
+        if self.model is None:
+            from .config import get_model
+            self.model = get_model(model=None)
+
+        # Model is required
+        if self.model is None:
+            raise ValueError(
+                "Model must be specified either as a parameter, "
+                "via environment variable ANY_AGENT_MODEL, "
+                "or in a config file."
+            )
