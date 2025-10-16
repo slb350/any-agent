@@ -298,6 +298,58 @@ async for msg in client.receive_messages():
 - Fewer dependencies = easier maintenance
 - Direct control over streaming behavior
 
+### 6. No Built-in Storage/Memory
+
+**Decision**: Don't provide database, persistence, or memory management
+
+**Rationale**:
+- Agents have domain-specific storage needs
+- Copy editor needs: issues, severity, trends
+- Style analyzer needs: patterns, voice tracking
+- Market analysis needs: comp titles, research
+- Forcing a schema would limit agents
+
+**What we provide instead**: Conversation primitives
+
+```python
+class Client:
+    @property
+    def history(self) -> list[dict]:
+        """Agent can read full history to store"""
+        return self.message_history.copy()
+
+    @property
+    def turn_metadata(self) -> dict:
+        """Agent can track conversation state"""
+        return {
+            "turn_count": self.turn_count,
+            "started_at": self.started_at
+        }
+```
+
+**Agent's responsibility**:
+```python
+from any_agent import Client, AgentOptions
+from my_agent.database import MyCustomDatabase
+
+class MyAgent:
+    def __init__(self):
+        self.db = MyCustomDatabase("data.db")  # Agent controls schema
+
+    async def run(self):
+        async with Client(options) as client:
+            # ... conversation ...
+
+            # Agent stores what it needs
+            self.db.save_conversation(client.history)
+            self.db.save_metadata(client.turn_metadata)
+```
+
+**Future possibility**: Optional `any_agent.extras.storage` for basic conversation storage:
+- Install separately: `pip install any-agent[storage]`
+- Simple schema for developers who don't need custom
+- But NOT in core - keeps main package minimal
+
 ## Implementation Complexity
 
 **Total LOC estimate**: ~300-400 lines

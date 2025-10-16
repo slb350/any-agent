@@ -64,8 +64,12 @@ This SDK is **specifically for local/self-hosted open-source models**.
 ### Advanced Features (Maybe Later)
 ⏳ Context window management
 ⏳ Automatic message history trimming
-⏳ Session persistence
-⏳ Memory/RAG integration
+⏳ Optional storage helpers (as extras)
+
+### Non-Features (Agent Responsibility)
+🚫 **Persistent storage/memory** - Agents handle their own SQLite/DB (like your copy_editor.database)
+🚫 **Tool execution** - Agents decide when/how to execute tools
+🚫 **RAG/embeddings** - Domain-specific, agents implement as needed
 
 ## Core Architecture
 
@@ -147,6 +151,62 @@ class AgentOptions:
    - Create AsyncOpenAI client
    - Format messages for API
    - Extract response blocks
+
+## Storage & Memory Philosophy
+
+**SDK does NOT provide**: Built-in database, session persistence, or memory management.
+
+**Why**: Your agents have domain-specific storage needs:
+- Copy Editor → Issues by chapter, severity trends, run history
+- Style Analyzer → Voice patterns, motif tracking, drift detection
+- Market Analysis → Comp titles, research sources, search history
+
+**What SDK provides**: Conversation primitives for easy storage:
+```python
+# Client exposes history for agent to store
+class Client:
+    @property
+    def history(self) -> list[dict]:
+        """Full conversation history"""
+        return self.message_history.copy()
+
+    @property
+    def turn_metadata(self) -> dict:
+        """Metadata about conversation state"""
+        return {
+            "turn_count": self.turn_count,
+            "started_at": self.started_at
+        }
+```
+
+**Your agent's responsibility**:
+```python
+from any_agent import Client, AgentOptions
+from copy_editor.database import CopyEditDatabase  # Your custom DB
+
+class CopyEditorAgent:
+    def __init__(self, novel, config):
+        self.db = CopyEditDatabase(db_path)  # Domain-specific schema
+
+    async def run_analysis(self):
+        async with Client(options) as client:
+            await client.query(prompt)
+
+            async for block in client.receive_messages():
+                # Process blocks
+                pass
+
+            # Save results with your custom logic
+            self.db.add_issue(run_id, issue_data)
+            # Or save conversation: self.db.save_conversation(client.history)
+```
+
+**Future possibility**: Optional `any_agent.extras.storage` helper for basic conversation storage:
+```bash
+pip install any-agent[storage]  # Adds aiosqlite
+```
+
+But most agents will have custom needs, so we don't force a choice.
 
 ## Project Structure
 

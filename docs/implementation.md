@@ -6,6 +6,14 @@ Phased implementation plan to build a minimal, working SDK for local/self-hosted
 
 **Target**: 3 weeks to validated MVP
 
+**What we're NOT building** (Agent responsibility):
+- ❌ Persistent storage/database
+- ❌ Memory management/RAG
+- ❌ Tool execution
+- ❌ Custom schemas
+
+Instead, we provide conversation primitives (`client.history`, `client.turn_metadata`) that agents can use with their own storage solutions (like your `copy_editor.database.py`).
+
 ## Phase 1: Foundation (Week 1, Days 1-3)
 
 ### Day 1: Project Setup & Types
@@ -407,6 +415,19 @@ class Client:
         # Check max turns
         if self.turn_count >= self.options.max_turns:
             logger.info(f"Reached max_turns ({self.options.max_turns})")
+
+    @property
+    def history(self) -> list[dict]:
+        """Get full conversation history for agent storage"""
+        return self.message_history.copy()
+
+    @property
+    def turn_metadata(self) -> dict:
+        """Get conversation metadata for agent tracking"""
+        return {
+            "turn_count": self.turn_count,
+            "max_turns": self.options.max_turns
+        }
 ```
 
 **Success Criteria**:
