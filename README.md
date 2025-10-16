@@ -9,11 +9,11 @@
 
 Any-Agent SDK provides a production-ready agent framework for building AI agents that work with any OpenAI-compatible endpoint. Built on top of [LiteLLM](https://github.com/BerriAI/litellm), it adds the missing "agent layer" features that developers need:
 
-- 🧠 **Automatic Context Management** - Never worry about token limits again
-- 🛠️ **Tool Framework** - Easy function registration and execution
-- 💬 **Session Management** - Stateful conversations with persistent context
-- 💾 **Memory & Persistence** - SQLite-backed interaction history
-- 🎯 **Claude SDK Ergonomics** - Familiar patterns for Claude developers
+- **Automatic Context Management** - Never worry about token limits again
+- **Tool Framework** - Easy function registration and execution
+- **Session Management** - Stateful conversations with persistent context
+- **Memory & Persistence** - SQLite-backed interaction history
+- **Claude SDK Ergonomics** - Familiar patterns for Claude developers
 
 ### Why Any-Agent?
 
@@ -134,7 +134,7 @@ agent = Agent(model="gpt-4", options=options)
 
 ## Features
 
-### 🧠 Automatic Context Management
+### Automatic Context Management
 
 No more manual token counting or message truncation. Any-Agent automatically:
 
@@ -151,7 +151,7 @@ for i in range(100):  # Any length!
     await session.receive()
 ```
 
-### 🛠️ Tool Framework
+### Tool Framework
 
 Register Python functions as tools with a simple decorator:
 
@@ -172,7 +172,7 @@ Features:
 - Timeout handling and retries
 - Parallel tool execution
 
-### 💬 Session Management
+### Session Management
 
 Maintain stateful conversations with automatic context preservation:
 
@@ -192,7 +192,7 @@ await session.save()
 session = await agent.load_session(session.id)
 ```
 
-### 💾 Memory & Persistence
+### Memory & Persistence
 
 SQLite-backed storage for interaction history:
 
@@ -241,8 +241,8 @@ print(f"Total interactions: {stats['total_interactions']}")
 Thanks to LiteLLM, Any-Agent works with 100+ providers including:
 
 **Cloud Providers:**
-- OpenAI (GPT-4, GPT-3.5)
-- Anthropic (Claude 3)
+- OpenAI (GPT)
+- Anthropic (Claude)
 - Google (Gemini)
 - Azure OpenAI
 - AWS Bedrock
@@ -268,7 +268,7 @@ See [LiteLLM's provider docs](https://docs.litellm.ai/docs/providers) for the co
 
 ## Development Status
 
-🚧 **Currently in active development** - Phase 1 (Foundation)
+**Currently in active development** - Phase 1 (Foundation)
 
 ### Roadmap
 
@@ -337,13 +337,13 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ## Support
 
-- 📖 [Documentation](docs/)
-- 💬 [GitHub Discussions](#) - Coming soon
-- 🐛 [Issue Tracker](https://github.com/yourusername/any-agent/issues)
-- 📧 Email: your.email@example.com
+- [Documentation](docs/)
+- [GitHub Discussions](#) - Coming soon
+- [Issue Tracker](https://github.com/yourusername/any-agent/issues)
+- Email: nope@nope.com
 
 ---
 
-**Status**: 🚧 Pre-alpha - API is subject to change
+**Status**: Pre-alpha - API is subject to change
 
 Star ⭐ this repo to follow development progress!
