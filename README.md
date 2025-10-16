@@ -100,6 +100,46 @@ async def main():
 asyncio.run(main())
 ```
 
+## Configuration
+
+Any-Agent SDK supports flexible configuration for server endpoints:
+
+### Environment Variable (Recommended)
+
+```bash
+export ANY_AGENT_BASE_URL="https://lmstudio.localbrandonfamily.com/v1"
+```
+
+```python
+# No base_url needed - uses environment variable
+options = AgentOptions(
+    system_prompt="...",
+    model="qwen2.5-32b-instruct"
+)
+```
+
+### Provider Shorthand
+
+```python
+# Use built-in defaults for common providers
+options = AgentOptions(
+    system_prompt="...",
+    model="llama3.1:70b",
+    provider="ollama"  # → http://localhost:11434/v1
+)
+```
+
+**Available providers**: `lmstudio`, `ollama`, `llamacpp`, `vllm`
+
+### Priority Order
+
+1. Explicit `base_url` parameter (highest)
+2. `ANY_AGENT_BASE_URL` environment variable
+3. `provider` shorthand
+4. Default to LM Studio (`http://localhost:1234/v1`)
+
+See [docs/configuration.md](docs/configuration.md) for complete guide.
+
 ## Why Not Just Use OpenAI Client?
 
 **Without any-agent** (raw OpenAI client):
@@ -145,14 +185,17 @@ async for msg in result:
 
 ```python
 class AgentOptions:
-    system_prompt: str                # System prompt
-    model: str                        # Model name (e.g., "qwen2.5-32b-instruct")
-    base_url: str                     # Endpoint (e.g., "http://localhost:1234/v1")
-    max_turns: int = 1                # Max conversation turns
-    max_tokens: int | None = 4096     # Tokens to generate (None uses provider default)
-    temperature: float = 0.7          # Sampling temperature
-    api_key: str = "not-needed"       # Most local servers don't need this
+    system_prompt: str                      # System prompt
+    model: str                              # Model name (e.g., "qwen2.5-32b-instruct")
+    base_url: str | None = None             # Optional: Endpoint URL
+    provider: str | None = None             # Optional: Provider shorthand
+    max_turns: int = 1                      # Max conversation turns
+    max_tokens: int | None = 4096           # Tokens to generate (None uses provider default)
+    temperature: float = 0.7                # Sampling temperature
+    api_key: str = "not-needed"             # Most local servers don't need this
 ```
+
+**Note**: `base_url` is optional and resolved automatically (see Configuration).
 
 ### query()
 
