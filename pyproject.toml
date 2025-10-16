@@ -1,0 +1,23 @@
+[project]
+name = "any-agent"
+version = "0.1.0"
+description = "Claude Agent SDK-style API for local/self-hosted LLMs"
+requires-python = ">=3.10"
+dependencies = [
+    "openai>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+]
+
+[build-system]
+requires = ["setuptools>=68.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["any_agent"]

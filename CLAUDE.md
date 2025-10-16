@@ -230,13 +230,37 @@ any-agent/
 └── LICENSE
 ```
 
+## Development Environment
+
+**Virtual Environment**: This project uses a venv in the project root (`./venv`)
+
+**Important**: Always use the project venv for Python/pip commands:
+```bash
+# Activate venv (if needed for manual commands)
+source venv/bin/activate
+
+# Install package in development mode
+./venv/bin/pip install -e .
+
+# Install with dev dependencies
+./venv/bin/pip install -e ".[dev]"
+
+# Run tests
+./venv/bin/pytest
+
+# Run examples
+./venv/bin/python examples/simple_lmstudio.py
+```
+
+**For Claude Code**: All Python/pip tool uses should reference `./venv/bin/python` or `./venv/bin/pip` explicitly.
+
 ## Implementation Plan
 
 See `docs/implementation.md` for detailed implementation steps.
 
 ### Phase 1: Core MVP (Week 1)
 - ✅ Project setup (pyproject.toml, structure)
-- 🔨 `types.py` - AgentOptions, message types
+- ✅ `types.py` - AgentOptions, message types
 - 🔨 `utils.py` - OpenAI client wrapper
 - 🔨 `client.py` - Simple `query()` function
 - 🔨 Test with LM Studio
