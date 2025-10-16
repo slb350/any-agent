@@ -16,14 +16,15 @@ Any-Agent SDK provides a lightweight wrapper around OpenAI-compatible local mode
 ## Supported Providers
 
 ✅ **LM Studio** - http://localhost:1234/v1
-✅ **Ollama** - http://localhost:11434
+✅ **Ollama** - http://localhost:11434/v1
 ✅ **llama.cpp server** - OpenAI-compatible mode
 ✅ **vLLM** - OpenAI-compatible API
 ✅ **Text Generation WebUI** - OpenAI extension
 ✅ **Any OpenAI-compatible local endpoint**
+✅ **Local gateways proxying cloud models** (e.g., Ollama or other OpenAI-compatible gateways configured to call remote models)
 
-❌ **NOT for Claude/OpenAI** - Use their official SDKs instead
-❌ **NOT for cloud providers** - This is for local/self-hosted models only
+❌ **Not a direct client for Claude/OpenAI** — use their SDKs directly unless you proxy through a local OpenAI-compatible gateway
+❌ **Not a direct client for cloud providers** — works if proxied via a local gateway exposing an OpenAI-compatible API
 
 ## Quick Start
 
@@ -73,13 +74,13 @@ asyncio.run(main())
 ### Multi-Turn Conversation (Ollama)
 
 ```python
-from any_agent import Client, AgentOptions
+from any_agent import Client, AgentOptions, TextBlock, ToolUseBlock
 
 async def main():
     options = AgentOptions(
         system_prompt="You are a helpful assistant",
         model="llama3.1:70b",
-        base_url="http://localhost:11434",
+        base_url="http://localhost:11434/v1",
         max_turns=10
     )
 
@@ -140,13 +141,13 @@ async for msg in result:
 
 ```python
 class AgentOptions:
-    system_prompt: str           # System prompt
-    model: str                   # Model name (e.g., "qwen2.5-32b-instruct")
-    base_url: str               # Endpoint (e.g., "http://localhost:1234/v1")
-    max_turns: int = 1          # Max conversation turns
-    max_tokens: int = 8000      # Max tokens to generate
-    temperature: float = 0.7    # Sampling temperature
-    api_key: str = "not-needed" # Most local servers don't need this
+    system_prompt: str                # System prompt
+    model: str                        # Model name (e.g., "qwen2.5-32b-instruct")
+    base_url: str                     # Endpoint (e.g., "http://localhost:1234/v1")
+    max_turns: int = 1                # Max conversation turns
+    max_tokens: int | None = 4096     # Tokens to generate (None uses provider default)
+    temperature: float = 0.7          # Sampling temperature
+    api_key: str = "not-needed"       # Most local servers don't need this
 ```
 
 ### query()
@@ -174,23 +175,27 @@ async with Client(options: AgentOptions) as client:
 
 - `TextBlock` - Text content from model
 - `ToolUseBlock` - Tool calls from model
+- `ToolUseError` - Tool call parsing error (malformed JSON, missing fields)
 - `AssistantMessage` - Full message wrapper
 
 ## Recommended Models
 
-**Fast & Efficient:**
-- Qwen 2.5 7B/14B/32B - Excellent instruction following
-- Llama 3.2 3B/8B - Good for simple tasks
-- Mistral 7B v0.3 - Solid all-around
+**Local models** (LM Studio, Ollama, llama.cpp):
+- **Qwen 2.5 7B/14B/32B** - Excellent instruction following, good for most tasks
+- **Llama 3.1 8B/70B** - Solid all-around performance
+- **Mistral 7B v0.3** - Fast and efficient for simple agents
+- **Gemma 2 9B/27B** - High-quality output for quality-focused work
 
-**Larger/Better:**
-- Qwen 2.5 72B - Near GPT-4 quality
-- Llama 3.1 70B - Very capable
-- DeepSeek-V3 - If you have the VRAM
+**Cloud-proxied via local gateway** (Ollama cloud provider, custom gateway):
+- Models like `deepseek-v3.1:671b-cloud`, `kimi-k2:1t-cloud`, etc.
+- Your `base_url` still points to localhost gateway (e.g., `http://localhost:11434/v1`)
+- Gateway handles authentication and routing to cloud provider
+- Useful when you need larger models than your hardware can run locally
 
-**For Copy Editing/Analysis:**
-- Qwen 2.5 32B+ - Excellent for detailed analysis
-- Command-R+ 104B - If resources allow
+**Architecture guidance:**
+- Prefer MoE (Mixture of Experts) models over dense when available - significantly faster
+- Start with 7B-32B models for most agent tasks - they're fast and capable
+- Test models with your specific use case - the LLM landscape changes rapidly
 
 ## Project Structure
 
@@ -236,6 +241,7 @@ See [docs/implementation.md](docs/implementation.md) for detailed plan.
 - Python 3.10+
 - openai 1.0+ (for AsyncOpenAI client)
 - pydantic 2.0+ (for types, optional)
+ - Some servers require a dummy `api_key`; set any non-empty string if needed
 
 ## License
 

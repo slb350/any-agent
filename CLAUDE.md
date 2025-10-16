@@ -40,16 +40,16 @@
 
 ### Supported Providers (In Scope)
 ✅ **LM Studio** - http://localhost:1234/v1
-✅ **Ollama** - http://localhost:11434
+✅ **Ollama** - http://localhost:11434/v1
 ✅ **llama.cpp server** - OpenAI-compatible mode
 ✅ **vLLM** - OpenAI-compatible API
 ✅ **Text Generation WebUI** - OpenAI extension
 ✅ **Any OpenAI-compatible local endpoint**
+✅ **Local gateways proxying cloud models** (e.g., Ollama or other OpenAI-compatible gateways configured to call remote models)
 
 ### NOT Supported (Out of Scope)
-❌ **Claude** - Use `claude-agent-sdk` instead
-❌ **OpenAI** - Use their official SDK
-❌ **Cloud Providers** - Bedrock, Vertex, Azure, etc.
+❌ **Direct Claude/OpenAI SDK usage** - Use their official SDKs, unless you route through a local OpenAI-compatible gateway
+❌ **Direct Cloud Provider SDKs** - Bedrock, Vertex, Azure, etc. (proxied via a local OpenAI-compatible gateway is fine)
 
 This SDK is **specifically for local/self-hosted open-source models**.
 
@@ -125,13 +125,13 @@ async with Client(options) as client:
 **Configuration Options:**
 ```python
 class AgentOptions:
-    system_prompt: str           # System prompt
-    model: str                   # Model name (e.g., "qwen2.5-32b-instruct")
-    base_url: str               # Endpoint (e.g., "http://localhost:1234/v1")
-    max_turns: int = 1          # Max conversation turns
-    max_tokens: int = 8000      # Max tokens to generate
-    temperature: float = 0.7    # Sampling temperature
-    api_key: str = "not-needed" # Most local servers don't need this
+    system_prompt: str                # System prompt
+    model: str                        # Model name (e.g., "qwen2.5-32b-instruct")
+    base_url: str                     # Endpoint (e.g., "http://localhost:1234/v1")
+    max_turns: int = 1                # Max conversation turns
+    max_tokens: int | None = 4096     # Tokens to generate (None uses provider default)
+    temperature: float = 0.7          # Sampling temperature
+    api_key: str = "not-needed"       # Most local servers don't need this
 ```
 
 ### Key Components
@@ -145,6 +145,7 @@ class AgentOptions:
    - `AgentOptions` - Configuration dataclass
    - `TextBlock` - Text content from model
    - `ToolUseBlock` - Tool calls from model
+   - `ToolUseError` - Tool call parsing error
    - `AssistantMessage` - Full message wrapper
 
 3. **utils.py** - OpenAI client helpers
@@ -260,11 +261,11 @@ See `docs/implementation.md` for detailed implementation steps.
 **Larger/Better:**
 - Qwen 2.5 72B (near GPT-4 quality)
 - Llama 3.1 70B (very capable)
-- DeepSeek-V3 (if you have the VRAM)
+- DeepSeek-V3 (via gateway/proxy)
 
 **For Copy Editing:**
 - Qwen 2.5 32B+ (excellent for detailed analysis)
-- Command-R+ 104B (if resources allow)
+- Command-R+ 104B (via gateway/proxy)
 
 ## Success Criteria
 

@@ -6,6 +6,8 @@ Any-Agent SDK provides a claude-agent-sdk-compatible API for local/self-hosted L
 
 **Core Goal**: Minimal wrapper around AsyncOpenAI that provides familiar patterns from claude-agent-sdk.
 
+Note: While the SDK targets local/self-hosted endpoints, it also works with local OpenAI-compatible gateways (e.g., Ollama) that proxy requests to cloud models. In that setup, Any-Agent still points to the local gateway `base_url`; credentials and routing are handled by the gateway.
+
 ## Architecture
 
 ```
@@ -62,29 +64,38 @@ class AgentOptions:
     model: str
     base_url: str
     max_turns: int = 1
-    max_tokens: int = 8000
+    max_tokens: int | None = 4096  # Default 4096, None uses provider default
     temperature: float = 0.7
     api_key: str = "not-needed"
 ```
 
 **Message Types** - Match claude-agent-sdk patterns
 ```python
+from typing import Literal
+from dataclasses import dataclass
+
 @dataclass
 class TextBlock:
     text: str
-    type: str = "text"
+    type: Literal["text"] = "text"
 
 @dataclass
 class ToolUseBlock:
     id: str
     name: str
     input: dict
-    type: str = "tool_use"
+    type: Literal["tool_use"] = "tool_use"
+
+@dataclass
+class ToolUseError:
+    error: str
+    raw_data: str | None = None
+    type: Literal["tool_use_error"] = "tool_use_error"
 
 @dataclass
 class AssistantMessage:
-    role: str = "assistant"
-    content: list[TextBlock | ToolUseBlock]
+    role: Literal["assistant"] = "assistant"
+    content: list[TextBlock | ToolUseBlock | ToolUseError]
 ```
 
 ### 2. utils.py - OpenAI Client Helpers
@@ -322,8 +333,7 @@ class Client:
     def turn_metadata(self) -> dict:
         """Agent can track conversation state"""
         return {
-            "turn_count": self.turn_count,
-            "started_at": self.started_at
+            "turn_count": self.turn_count
         }
 ```
 
@@ -349,6 +359,68 @@ class MyAgent:
 - Install separately: `pip install any-agent[storage]`
 - Simple schema for developers who don't need custom
 - But NOT in core - keeps main package minimal
+
+### 7. Tool-Calling Streaming Semantics
+
+OpenAI-style streaming delivers tool calls incrementally. Arguments are streamed as partial JSON strings over multiple chunks, and metadata like `id` and `function.name` can appear in separate chunks. To handle this robustly:
+
+**What streaming chunks look like**
+```json
+// Chunk 1
+{
+  "choices": [{
+    "delta": {
+      "tool_calls": [
+        {"index": 0, "id": "call_abc", "function": {"name": "search", "arguments": "{\"q\": \"par"}}
+      ]
+    }
+  }]
+}
+// Chunk 2
+{
+  "choices": [{
+    "delta": {
+      "tool_calls": [
+        {"index": 0, "function": {"arguments": "is\"}"}}
+      ]
+    }
+  }]
+}
+// Final chunk
+{
+  "choices": [{"finish_reason": "tool_calls"}]
+}
+```
+
+**Aggregation strategy (MVP)**
+- Maintain an in-memory map keyed by `index` for the current assistant turn: `pending_tools[index] = { id, name, arguments_buffer }`.
+- For each chunk:
+  - If `delta.content` exists, yield text as usual.
+  - If `delta.tool_calls` exists, for each entry:
+    - Use `tc.index` to select/update the correct pending tool.
+    - Set `id` and `function.name` when they first appear.
+    - Append `function.arguments` to `arguments_buffer` when present (it is a partial JSON string).
+- Finalization:
+  - When `finish_reason == "tool_calls"` (or after the stream ends), finalize each pending tool:
+    - Attempt to parse `arguments_buffer` as JSON. If parsing fails, keep buffering until the assistant turn ends; as a last resort, log a warning and skip emitting the tool call for this turn (to avoid emitting malformed `input`).
+    - Emit a single completed `ToolUseBlock` per tool with `id`, `name`, and parsed `input: dict`.
+- Emission policy (MVP): emit only completed `ToolUseBlock`s. Do not emit partial tool deltas; this keeps the interface aligned with claude-agent-sdk-style blocks.
+
+**Provider differences and fallbacks**
+- Not all local endpoints implement tool/function calling. In those cases, only `TextBlock`s will be produced.
+- Some providers emit `id` late or omit it; rely primarily on `index` for aggregation, set `id` once available.
+- Some providers may end the stream with `finish_reason == "stop"` even when tool calls were emitted; in this case, finalize pending tools at end-of-stream.
+
+**Error handling**
+- If `arguments_buffer` never forms valid JSON by stream end, emit a `ToolUseError` block with the error message and raw buffer data
+- If `id` or `name` are missing, emit a `ToolUseError` block describing what's missing
+- User code can check for `isinstance(block, ToolUseError)` to handle tool parsing failures
+- `ToolUseError` blocks are NOT preserved in message history (only valid tool calls are)
+- Keep aggregation state per assistant turn; clear state once finalized
+
+**Future enhancement options**
+- Add an optional “tool delta” event (e.g., `ToolUseDelta`) for real-time monitoring of partial arguments.
+- Provide a lenient JSON fixer for common truncation issues, gated behind an option (e.g., `allow_lenient_tool_json`).
 
 ## Implementation Complexity
 
@@ -383,7 +455,7 @@ class MyAgent:
 - ⏳ Session persistence (SQLite)
 - ⏳ Retry logic with exponential backoff
 - ⏳ Token counting/usage tracking
-- ⏳ Support for function calling (OpenAI format)
+- ⏳ Richer tool-calling semantics and function definition mapping across providers
 
 ## Testing Strategy
 
