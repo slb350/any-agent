@@ -1,4 +1,4 @@
-"""Type definitions matching claude-agent-sdk patterns"""
+"""Type definitions for Any-Agent SDK"""
 from dataclasses import dataclass, field
 from typing import Literal
 

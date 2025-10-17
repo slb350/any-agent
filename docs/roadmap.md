@@ -9,45 +9,30 @@ The SDK core is functionally complete with:
 - ✅ Proper resource cleanup (no httpx transport leaks)
 - ✅ Configuration flexibility (env vars, providers, helpers)
 - ✅ URL validation and configurable timeouts
-- ✅ Tested with Ollama (kimi-k2:1t-cloud)
+- ✅ Tested with Ollama (kimi-k2:1t-cloud), LM Studio, and llama.cpp servers
 
 ## Near Term (v0.1.0 Release)
 
-### 1. Tool Use Example (Priority: High)
-Create a complete example showing the tool execution loop:
-- Agent detects ToolUseBlock in stream
-- Agent executes the tool (e.g., search, calculate)
-- Agent uses `add_tool_result()` to append result
-- Agent continues conversation with tool context
-- **File**: `examples/tool_use_agent.py`
+### ✅ Completed
+- Tool use loop example (`examples/tool_use_agent.py`) demonstrating `add_tool_result()`
+- Provider validation for LM Studio, Ollama, and llama.cpp documented in `docs/provider-compatibility.md`
+- PyPI readiness groundwork: license, CHANGELOG, README refresh, `pyproject.toml` metadata/classifiers
+- Practical showcase agents added (`examples/git_commit_agent.py`, `examples/log_analyzer_agent.py`) and featured in the README
 
-### 2. Provider Testing (Priority: High)
-Validate compatibility across all supported providers:
-- **LM Studio** (network endpoint available)
-- **llama.cpp** (if available locally)
-- **vLLM** (if available)
-- Document any provider-specific quirks
-- **File to create**: `docs/provider-compatibility.md`
+### ▶ Remaining Before Release
 
-### 3. PyPI Release Preparation (Priority: High)
-- Finalize version to 0.1.0
-- Add classifiers to pyproject.toml
-- Create CHANGELOG.md
-- Add GitHub release workflow
-- Register package name on PyPI
-- **Files to create**:
-  - `CHANGELOG.md` (required)
-  - `.github/workflows/release.yml` (optional automation)
+1. **Release Logistics (Priority: High)**
+   - [ ] Register `any-agent` on PyPI and perform publish dry run
+   - [ ] Add GitHub workflow for packaging/release (optional but recommended)
 
-### 4. Documentation Polish (Priority: Medium)
-- Complete API reference (docstrings → docs)
-- Add migration guide from claude-agent-sdk
-- Document architectural decisions
-- Add troubleshooting guide
-- **Files to create**:
-  - `docs/api-reference.md`
-  - `docs/migration-guide.md`
-  - `docs/troubleshooting.md`
+2. **Documentation Polish (Priority: Medium)**
+   - [ ] Generate API reference from docstrings (`docs/api-reference.md`)
+   - [ ] Write migration guide from claude-agent-sdk (`docs/migration-guide.md`)
+   - [ ] Add troubleshooting guide (`docs/troubleshooting.md`)
+   - [ ] Expand architecture notes for updated streaming pipeline
+
+3. **Provider Coverage (Priority: Medium)**
+   - [ ] Test and document vLLM or note limitations if unavailable
 
 ## Medium Term (v0.2.0)
 

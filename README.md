@@ -1,15 +1,15 @@
 # Any-Agent SDK
 
-> Claude Agent SDK-style API for local/self-hosted LLMs via OpenAI-compatible endpoints
+> Lightweight Python SDK for local/self-hosted LLMs via OpenAI-compatible endpoints
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## Overview
 
-Any-Agent SDK provides a lightweight wrapper around OpenAI-compatible local model servers, with the same ergonomics as `claude-agent-sdk`.
+Any-Agent SDK provides a clean, streaming API for working with OpenAI-compatible local model servers, making it easy to build AI agents with your own hardware.
 
-**Use Case**: You love the claude-agent-sdk workflow for building agents, but want to use local Qwen/Llama/Mistral models instead of paying for Claude API.
+**Use Case**: Build powerful AI agents using local Qwen/Llama/Mistral models without cloud API costs or data privacy concerns.
 
 **Solution**: Drop-in similar API that works with LM Studio, Ollama, llama.cpp, and any OpenAI-compatible endpoint—complete with streaming, tool call aggregation, and a helper for returning tool results back to the model.
 
@@ -301,7 +301,7 @@ options = AgentOptions(
 result = query(prompt=user_prompt, options=options)
 async for msg in result:
     # Clean message types (TextBlock, ToolUseBlock)
-    # Same pattern as claude-agent-sdk
+    # Automatic streaming and tool call handling
 ```
 
 **Value**: Familiar patterns + Less boilerplate + Easy migration
@@ -489,6 +489,6 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ---
 
-**Status**: Pre-alpha - API is subject to change
+**Status**: Alpha - API stabilizing, feedback welcome
 
-Star ⭐ this repo if you want claude-agent-sdk ergonomics for your local models!
+Star ⭐ this repo if you're building AI agents with local models!

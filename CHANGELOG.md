@@ -19,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Configurable timeout parameter (default 60 seconds)
 - Proper resource cleanup - no httpx transport leaks
 - Comprehensive examples including tool use patterns
+- Practical agent examples: Git Commit Agent and Log Analyzer Agent
+- Provider compatibility documentation with verified configurations
 - Test coverage for core functionality
 - Verified compatibility with llama.cpp, LM Studio, and Ollama
 
@@ -26,10 +28,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `AgentOptions` now requires explicit `model` and `base_url` parameters
 - AsyncOpenAI client properly closed after each request
 - User messages only added to history after successful API call
+- README reshaped with real-world agent walkthroughs and configuration guidance
+- `get_model()` now prioritizes environment overrides while allowing explicit fallbacks
+- Updated documentation to reflect streaming semantics and provider verification
 
 ### Fixed
 - Resource leaks from unclosed AsyncOpenAI clients
 - Corrupted conversation history on network failures
+- Streaming duplication with accumulative providers such as LM Studio
+- Tool call aggregation resilience when arguments arrive incrementally
 
 ### Security
 - Added `_safe_eval()` in examples to replace unsafe `eval()`
