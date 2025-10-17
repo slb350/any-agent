@@ -288,6 +288,15 @@ async for msg in client.receive_messages():
         log_tool_use(msg.name, msg.input)
         # User can execute if they want
         # (we don't auto-execute)
+
+        tool_result = await execute_tool(msg.name, msg.input)
+        client.add_tool_result(
+            tool_call_id=msg.id,
+            content=tool_result  # dict/list will be JSON encoded automatically
+        )
+
+# Next assistant turn sees tool result in history
+await client.query("Here is what the tool returned...")
 ```
 
 ### 4. Minimal State Management

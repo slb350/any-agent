@@ -29,6 +29,8 @@ async def query(
     """
     client = create_client(options)
     messages = format_messages(options.system_prompt, prompt)
+    aggregator = ToolCallAggregator()
+    current_message = AssistantMessage(content=[])
 
     try:
         response = await client.chat.completions.create(
@@ -39,25 +41,25 @@ async def query(
             stream=True
         )
 
-        current_message = AssistantMessage(content=[])
-        aggregator = ToolCallAggregator()
-
-        async for chunk in response:
-            # Process text blocks immediately
-            text_block = aggregator.process_chunk(chunk)
-            if text_block:
-                current_message.content.append(text_block)
+        try:
+            async for chunk in response:
+                # Process text blocks immediately
+                text_block = aggregator.process_chunk(chunk)
+                if text_block:
+                    current_message.content.append(text_block)
+                    yield current_message
+        finally:
+            # Finalize any pending tool calls
+            tool_blocks = aggregator.finalize_tools()
+            if tool_blocks:
+                current_message.content.extend(tool_blocks)
                 yield current_message
-
-        # Finalize any pending tool calls
-        tool_blocks = aggregator.finalize_tools()
-        if tool_blocks:
-            current_message.content.extend(tool_blocks)
-            yield current_message
 
     except Exception as e:
         logger.error(f"Query failed: {e}")
         raise
+    finally:
+        await client.close()
 
 
 class Client:
@@ -83,8 +85,11 @@ class Client:
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        # Cleanup
-        pass
+        await self.close()
+
+    async def close(self):
+        """Close the underlying OpenAI client."""
+        await self.client.close()
 
     async def query(self, prompt: str):
         """Send query and prepare to receive messages"""
@@ -94,22 +99,29 @@ class Client:
             self.message_history
         )
 
-        # Add user message to history
-        self.message_history.append({
+        user_entry = {
             "role": "user",
             "content": prompt
-        })
+        }
 
-        self.response_stream = await self.client.chat.completions.create(
-            model=self.options.model,
-            messages=messages,
-            max_tokens=self.options.max_tokens,
-            temperature=self.options.temperature,
-            stream=True
-        )
+        try:
+            response_stream = await self.client.chat.completions.create(
+                model=self.options.model,
+                messages=messages,
+                max_tokens=self.options.max_tokens,
+                temperature=self.options.temperature,
+                stream=True
+            )
+        except Exception:
+            self.response_stream = None
+            self._aggregator = None
+            raise
 
+        self.response_stream = response_stream
         # Initialize aggregator for this turn
         self._aggregator = ToolCallAggregator()
+        # Add user message to history only after successful request setup
+        self.message_history.append(user_entry)
 
     async def receive_messages(self) -> AsyncGenerator[TextBlock | ToolUseBlock | ToolUseError, None]:
         """Stream individual blocks from response"""
@@ -144,6 +156,10 @@ class Client:
         # Check max turns
         if self.turn_count >= self.options.max_turns:
             logger.info(f"Reached max_turns ({self.options.max_turns})")
+
+        # Reset streaming state
+        self.response_stream = None
+        self._aggregator = None
 
     def _format_history_entry(
         self,
@@ -187,6 +203,53 @@ class Client:
             }
 
         return entry
+
+    def add_tool_result(
+        self,
+        tool_call_id: str,
+        content: str | dict | list[Any],
+        *,
+        name: str | None = None
+    ) -> None:
+        """
+        Append a tool execution result to the conversation history.
+
+        This mirrors OpenAI's required `{"role": "tool"}` message so the model
+        can see what the tool returned before the next assistant turn.
+        """
+        if not tool_call_id:
+            raise ValueError("tool_call_id cannot be empty")
+
+        if not self._tool_call_known(tool_call_id):
+            raise ValueError(f"Unknown tool_call_id: {tool_call_id}")
+
+        if isinstance(content, str):
+            message_content = content
+        elif isinstance(content, (dict, list)):
+            message_content = json.dumps(content)
+        else:
+            raise TypeError("content must be a str, dict, or list")
+
+        entry: dict[str, Any] = {
+            "role": "tool",
+            "tool_call_id": tool_call_id,
+            "content": message_content
+        }
+
+        if name:
+            entry["name"] = name
+
+        self.message_history.append(entry)
+
+    def _tool_call_known(self, tool_call_id: str) -> bool:
+        """Return True if the tool call id exists in the stored history."""
+        for message in reversed(self.message_history):
+            if message.get("role") != "assistant":
+                continue
+            for tool_call in message.get("tool_calls", []):
+                if tool_call.get("id") == tool_call_id:
+                    return True
+        return False
 
     @property
     def history(self) -> list[dict[str, Any]]:

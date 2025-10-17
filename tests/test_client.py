@@ -1,5 +1,9 @@
 """Tests for Client class"""
+from types import SimpleNamespace
+from typing import Any
+
 import pytest
+
 from any_agent import Client, AgentOptions
 from any_agent.types import TextBlock, ToolUseBlock
 
@@ -161,3 +165,197 @@ async def test_client_receive_messages_without_query():
     with pytest.raises(RuntimeError, match="Call query\\(\\) first"):
         async for _ in client.receive_messages():
             pass
+
+
+def test_client_add_tool_result_with_string():
+    """Tool results should be appended as tool messages"""
+    options = AgentOptions(
+        system_prompt="Test",
+        model="test-model",
+        base_url="http://localhost:1234/v1"
+    )
+
+    client = Client(options)
+    client.message_history.append({
+        "role": "assistant",
+        "content": None,
+        "tool_calls": [
+            {
+                "id": "call_123",
+                "type": "function",
+                "function": {"name": "search", "arguments": "{}"}
+            }
+        ]
+    })
+
+    client.add_tool_result("call_123", "result text")
+
+    tool_message = client.message_history[-1]
+    assert tool_message["role"] == "tool"
+    assert tool_message["tool_call_id"] == "call_123"
+    assert tool_message["content"] == "result text"
+
+
+def test_client_add_tool_result_with_dict():
+    """Dict content should be JSON-encoded"""
+    options = AgentOptions(
+        system_prompt="Test",
+        model="test-model",
+        base_url="http://localhost:1234/v1"
+    )
+
+    client = Client(options)
+    client.message_history.append({
+        "role": "assistant",
+        "content": None,
+        "tool_calls": [
+            {
+                "id": "call_abc",
+                "type": "function",
+                "function": {"name": "lookup", "arguments": "{}"}
+            }
+        ]
+    })
+
+    client.add_tool_result("call_abc", {"foo": "bar"})
+
+    tool_message = client.message_history[-1]
+    assert tool_message["role"] == "tool"
+    assert tool_message["tool_call_id"] == "call_abc"
+
+    import json
+    assert json.loads(tool_message["content"]) == {"foo": "bar"}
+
+
+def test_client_add_tool_result_unknown_id():
+    """Unknown tool_call_id should raise ValueError"""
+    options = AgentOptions(
+        system_prompt="Test",
+        model="test-model",
+        base_url="http://localhost:1234/v1"
+    )
+
+    client = Client(options)
+
+    with pytest.raises(ValueError, match="Unknown tool_call_id"):
+        client.add_tool_result("missing", "data")
+
+
+def test_client_add_tool_result_invalid_content_type():
+    """Unsupported content types should raise TypeError"""
+    options = AgentOptions(
+        system_prompt="Test",
+        model="test-model",
+        base_url="http://localhost:1234/v1"
+    )
+
+    client = Client(options)
+    client.message_history.append({
+        "role": "assistant",
+        "content": None,
+        "tool_calls": [
+            {
+                "id": "call_xyz",
+                "type": "function",
+                "function": {"name": "search", "arguments": "{}"}
+            }
+        ]
+    })
+
+    with pytest.raises(TypeError, match="content must be a str, dict, or list"):
+        client.add_tool_result("call_xyz", 123)
+
+
+def test_client_add_tool_result_with_list_and_name():
+    """List content should be JSON encoded and name propagated."""
+    options = AgentOptions(
+        system_prompt="Test",
+        model="test-model",
+        base_url="http://localhost:1234/v1"
+    )
+
+    client = Client(options)
+    client.message_history.append({
+        "role": "assistant",
+        "content": None,
+        "tool_calls": [
+            {
+                "id": "call_list",
+                "type": "function",
+                "function": {"name": "lookup", "arguments": "{}"}
+            }
+        ]
+    })
+
+    client.add_tool_result("call_list", ["a", "b"], name="lookup")
+
+    tool_message = client.message_history[-1]
+    assert tool_message["name"] == "lookup"
+    import json
+    assert json.loads(tool_message["content"]) == ["a", "b"]
+
+
+@pytest.mark.asyncio
+async def test_client_query_failure_does_not_mutate_history(monkeypatch):
+    """query() should rollback state if the transport raises."""
+    class FailingMockClient:
+        def __init__(self):
+            self.closed = False
+            self.chat = SimpleNamespace(
+                completions=SimpleNamespace(create=self._create)
+            )
+
+        async def _create(self, **_: Any):
+            raise RuntimeError("boom")
+
+        async def close(self):
+            self.closed = True
+
+    failing_client = FailingMockClient()
+    monkeypatch.setattr("any_agent.client.create_client", lambda _options: failing_client)
+
+    options = AgentOptions(
+        system_prompt="System",
+        model="model",
+        base_url="http://localhost:1234/v1"
+    )
+
+    client = Client(options)
+
+    with pytest.raises(RuntimeError, match="boom"):
+        await client.query("hello")
+
+    assert client.message_history == []
+    assert client.response_stream is None
+    assert client._aggregator is None
+
+
+@pytest.mark.asyncio
+async def test_client_context_manager_closes_underlying_client(monkeypatch):
+    """__aexit__ should close the created client to release transports."""
+    class ClosingMockClient:
+        def __init__(self):
+            self.closed = False
+            self.chat = SimpleNamespace(
+                completions=SimpleNamespace(create=self._create)
+            )
+
+        async def _create(self, **_: Any):
+            return []
+
+        async def close(self):
+            self.closed = True
+
+    closing_client = ClosingMockClient()
+    monkeypatch.setattr("any_agent.client.create_client", lambda _options: closing_client)
+
+    options = AgentOptions(
+        system_prompt="System",
+        model="model",
+        base_url="http://localhost:1234/v1"
+    )
+
+    async with Client(options):
+        pass
+
+    assert closing_client.closed

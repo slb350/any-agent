@@ -1,5 +1,8 @@
 """Tests for utils module"""
+from types import SimpleNamespace
+
 import pytest
+
 from any_agent.utils import format_messages, create_client, ToolCallAggregator
 from any_agent.types import AgentOptions, TextBlock, ToolUseBlock, ToolUseError
 
@@ -39,11 +42,14 @@ def test_create_client():
     options = AgentOptions(
         system_prompt="Test",
         model="test-model",
-        base_url="http://localhost:1234/v1"
+        base_url="http://localhost:1234/v1",
+        timeout=45.0,
+        api_key="local-key"
     )
     client = create_client(options)
     assert str(client.base_url).rstrip('/') == "http://localhost:1234/v1"
-    assert client.timeout == 60.0
+    assert client.timeout == 45.0
+    assert client.api_key == "local-key"
 
 
 def test_tool_aggregator_basic():
@@ -84,6 +90,30 @@ def test_tool_aggregator_text_content():
     result = aggregator.process_chunk(MockChunk())
     assert isinstance(result, TextBlock)
     assert result.text == "Hello world"
+
+
+def test_tool_aggregator_process_tool_call_chunks():
+    """Aggregator should combine streamed tool call fragments."""
+    aggregator = ToolCallAggregator()
+
+    def chunk(tool_id=None, name=None, arguments=None):
+        function = SimpleNamespace(name=name, arguments=arguments)
+        tool_call = SimpleNamespace(index=0, id=tool_id, function=function)
+        delta = SimpleNamespace(content=None, tool_calls=[tool_call])
+        return SimpleNamespace(choices=[SimpleNamespace(delta=delta)])
+
+    # First chunk provides id, name, and partial arguments
+    aggregator.process_chunk(chunk(tool_id="call_123", name="search", arguments='{"query": "new'))
+    # Second chunk completes arguments
+    aggregator.process_chunk(chunk(arguments='s"}'))
+
+    results = aggregator.finalize_tools()
+    assert len(results) == 1
+    tool = results[0]
+    assert isinstance(tool, ToolUseBlock)
+    assert tool.id == "call_123"
+    assert tool.name == "search"
+    assert tool.input == {"query": "news"}
 
 
 def test_tool_aggregator_finalize_empty():

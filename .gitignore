@@ -67,6 +67,7 @@ coverage.xml
 
 # Project specific
 archive/
+CLAUDE.md
 *.log
 *.db
 *.sqlite
@@ -82,3 +83,7 @@ dmypy.json
 
 # pytype static type analyzer
 .pytype/
+
+# Local llama.cpp for testing
+llama.cpp/
+*.gguf

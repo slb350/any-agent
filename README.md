@@ -11,7 +11,7 @@ Any-Agent SDK provides a lightweight wrapper around OpenAI-compatible local mode
 
 **Use Case**: You love the claude-agent-sdk workflow for building agents, but want to use local Qwen/Llama/Mistral models instead of paying for Claude API.
 
-**Solution**: Drop-in similar API that works with LM Studio, Ollama, llama.cpp, and any OpenAI-compatible endpoint.
+**Solution**: Drop-in similar API that works with LM Studio, Ollama, llama.cpp, and any OpenAI-compatible endpoint—complete with streaming, tool call aggregation, and a helper for returning tool results back to the model.
 
 ## Supported Providers
 
@@ -81,6 +81,10 @@ asyncio.run(main())
 from any_agent import Client, AgentOptions, TextBlock, ToolUseBlock
 from any_agent.config import get_base_url
 
+def run_my_tool(name: str, params: dict) -> dict:
+    # Replace with your tool execution logic
+    return {"result": f"stub output for {name}"}
+
 async def main():
     options = AgentOptions(
         system_prompt="You are a helpful assistant",
@@ -97,9 +101,13 @@ async def main():
                 print(f"Assistant: {msg.text}")
             elif isinstance(msg, ToolUseBlock):
                 print(f"Tool used: {msg.name}")
+                tool_result = run_my_tool(msg.name, msg.input)
+                client.add_tool_result(msg.id, tool_result)
 
 asyncio.run(main())
 ```
+
+See `examples/tool_use_agent.py` for progressively richer patterns (manual loop, helper function, and reusable agent class) demonstrating `add_tool_result()` in context.
 
 ## Configuration
 
@@ -250,10 +258,10 @@ async with Client(options: AgentOptions) as client:
 ## Recommended Models
 
 **Local models** (LM Studio, Ollama, llama.cpp):
-- **Qwen 2.5 7B/14B/32B** - Excellent instruction following, good for most tasks
-- **Llama 3.1 8B/70B** - Solid all-around performance
-- **Mistral 7B v0.3** - Fast and efficient for simple agents
-- **Gemma 2 9B/27B** - High-quality output for quality-focused work
+- **GPT-OSS-120B** - Best in class for speed and quality
+- **Qwen 3 30B** - Excellent instruction following, good for most tasks
+- **GPT-OSS-20B - Solid all-around performance
+- **Mistral 7B - Fast and efficient for simple agents
 
 **Cloud-proxied via local gateway** (Ollama cloud provider, custom gateway):
 - **kimi-k2:1t-cloud** - Tested and working via Ollama gateway
@@ -265,7 +273,7 @@ async with Client(options: AgentOptions) as client:
 
 **Architecture guidance:**
 - Prefer MoE (Mixture of Experts) models over dense when available - significantly faster
-- Start with 7B-32B models for most agent tasks - they're fast and capable
+- Start with 7B-30B models for most agent tasks - they're fast and capable
 - Test models with your specific use case - the LLM landscape changes rapidly
 
 ## Project Structure
@@ -273,30 +281,67 @@ async with Client(options: AgentOptions) as client:
 ```
 any-agent/
 ├── any_agent/
-│   ├── __init__.py      # Main exports: query, Client, AgentOptions
-│   ├── client.py        # query() and Client class
-│   ├── types.py         # Message types and AgentOptions
-│   └── utils.py         # OpenAI client helpers
+│   ├── __init__.py        # query, Client, AgentOptions exports
+│   ├── client.py          # Streaming query(), Client, tool helper
+│   ├── config.py          # Env/provider helpers
+│   ├── types.py           # Dataclasses for options and blocks
+│   └── utils.py           # OpenAI client + ToolCallAggregator
+├── docs/
+│   ├── configuration.md
+│   ├── implementation.md
+│   ├── provider-compatibility.md
+│   ├── roadmap.md
+│   └── technical-design.md
 ├── examples/
 │   ├── simple_lmstudio.py
+│   ├── simple_with_env.py
+│   ├── env_config_complete.py
+│   ├── config_examples.py
 │   ├── ollama_chat.py
-│   └── copy_editor_port.py
+│   ├── tool_use_agent.py
+│   ├── test_lmstudio.py
+│   ├── test_multiturn_network.py
+│   ├── test_network_lmstudio.py
+│   ├── test_ollama_kimi.py
+│   └── test_timeout.py
 ├── tests/
+│   ├── test_agent_options.py
+│   ├── test_client.py
+│   ├── test_config.py
+│   ├── test_query.py
+│   └── test_utils.py
+├── CHANGELOG.md
+├── CLAUDE.md
 ├── pyproject.toml
 └── README.md
 ```
 
+## Examples
+
+- `examples/simple_lmstudio.py` – Minimal streaming query against a local LM Studio server.
+- `examples/simple_with_env.py` – Same query pattern, but pulls model/URL via config helpers with fallbacks.
+- `examples/env_config_complete.py` – Strict environment-variable configuration; raises if settings are missing.
+- `examples/config_examples.py` – Shows the provider shortcuts and manual overrides side by side.
+- `examples/ollama_chat.py` – Multi-turn chat loop with Ollama, including tool-call logging.
+- `examples/tool_use_agent.py` – End-to-end tool flow: manual handling, helper function, and reusable agent class.
+- `examples/test_lmstudio.py` – Comprehensive LM Studio smoke test covering streaming, timeouts, and errors.
+- `examples/test_multiturn_network.py` – Network-only multi-turn regression test for remote endpoints.
+- `examples/test_network_lmstudio.py` – Connectivity/timeout checks for LM Studio over the network.
+- `examples/test_ollama_kimi.py` – Quick validation script for the `kimi-k2` model on Ollama.
+- `examples/test_timeout.py` – Ensures custom timeout settings behave as expected.
+
 ## Development Status
 
-**Currently in active development** - Phase 2 (Multi-turn & Tool Monitoring)
+**Currently in active development** – multi-turn support, tool monitoring, and tool-result helpers are implemented; we’re polishing examples and broadening provider coverage.
 
 ### Roadmap
 
 - [x] Project planning and architecture
-- [x] **Phase 1**: Core query() and Client class - **Tested with Ollama (kimi-k2:1t-cloud)**
-- [ ] **Phase 2**: Multi-turn support with tool monitoring (In Progress)
-- [ ] **Phase 3**: Port copy_editor agent as validation
-- [ ] **Phase 4**: Documentation and PyPI release
+- [x] Core `query()` and `Client` class (tested with Ollama `kimi-k2:1t-cloud`)
+- [x] Tool monitoring + `Client.add_tool_result()` helper
+- [x] Tool use example (`examples/tool_use_agent.py`)
+- [ ] Provider compatibility matrix
+- [ ] PyPI release tooling
 
 ### Tested Providers
 
@@ -311,7 +356,17 @@ See [docs/implementation.md](docs/implementation.md) for detailed plan.
 - [CLAUDE.md](CLAUDE.md) - Project overview and context
 - [docs/technical-design.md](docs/technical-design.md) - Architecture details
 - [docs/implementation.md](docs/implementation.md) - Implementation plan
+- [docs/roadmap.md](docs/roadmap.md) - Current milestones and future work
+- [docs/provider-compatibility.md](docs/provider-compatibility.md) - Provider notes (tracked as we validate)
 - [examples/](examples/) - Usage examples
+
+## Testing
+
+```bash
+./venv/bin/python -m pytest
+```
+
+Add `-k` or a specific path when you want to target a subset of the suite (`tests/test_client.py`, etc.).
 
 ## Requirements
 
