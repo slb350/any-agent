@@ -5,6 +5,63 @@ All notable changes to Open Agent SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2025-10-17
+
+### Added
+- **Automatic Tool Execution** - Major quality-of-life improvement for tool-using agents
+  - `auto_execute_tools=True` flag in `AgentOptions` - tools execute automatically without boilerplate
+  - `max_tool_iterations` parameter (default 5) - safety limit to prevent infinite tool loops
+  - Tools execute and results feed back automatically until text-only response
+  - Simplifies code significantly - no manual `add_tool_result()` + `query("")` loop needed
+  - Works seamlessly with hooks - PreToolUse/PostToolUse fire before/after each execution
+  - Error handling: Unknown tools and execution failures yield `ToolUseError` for monitoring
+  - Backward compatible: defaults to `False` (manual mode) to preserve existing behavior
+- Internal improvements:
+  - `_tool_registry` built at Client init with duplicate name validation
+  - `_continue_turn()` method for hook-free conversation continuation
+  - `_receive_once()` helper ensures stream fully consumed before tool execution
+  - `_auto_execute_loop()` orchestrates automatic execution with proper error handling
+- Test coverage: 10 comprehensive tests in `tests/test_auto_execution.py` (128 total)
+  - Tool registry validation (duplicate detection)
+  - Auto-execution flow (basic, hooks, errors)
+  - Max iterations safety limit
+  - Unknown tool handling
+  - Execution error handling
+  - Backward compatibility (manual mode)
+  - Mixed mode scenarios
+
+### Changed
+- Updated `examples/calculator_tools.py` to demonstrate both automatic and manual modes
+  - Leads with automatic execution (recommended)
+  - Shows manual mode as advanced option
+  - Consolidated from separate examples for clarity
+- Error payloads now pass structured dicts (not JSON strings) to `add_tool_result()`
+  - `{"error": "...", "tool": name}` format for better hook integration
+  - PostToolUse hooks receive structured objects
+- Updated README "Function Calling with Tools" section
+  - Leads with automatic execution pattern
+  - Manual mode shown as advanced option
+  - Updated API Reference to include new parameters
+
+### Fixed
+- `_continue_turn()` now uses empty prompt instead of replaying user's original question
+  - Prevents confusing the model with repeated queries
+  - Mirrors manual `query("")` pattern correctly
+
+### Technical
+- All 128 tests passing (10 new auto-execution tests)
+- Clean separation: auto mode via `_auto_execute_loop()`, manual via original `receive_messages()` flow
+- Tool execution fully consumed before continuation (prevents message interleaving)
+- Hooks work identically in both auto and manual modes
+- Safety-first design: fail-fast with low default iteration limit
+
+### Design Philosophy
+- **Pit of success**: Auto-execution is what most users want, now it's the easiest path
+- **Manual when needed**: Advanced users keep full control for custom execution logic
+- **Safety limits**: `max_tool_iterations` prevents runaway loops
+- **Hook integration**: PreToolUse can still block/modify, PostToolUse still observes
+- **Backward compatible**: Existing code continues working unchanged
+
 ## [0.2.4] - 2025-10-17
 
 ### Added

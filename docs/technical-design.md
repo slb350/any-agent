@@ -78,6 +78,8 @@ class AgentOptions:
     model: str
     base_url: str
     tools: list[Tool] = field(default_factory=list)  # v0.2.2+
+    auto_execute_tools: bool = False                 # v0.3.0+ Auto tool execution
+    max_tool_iterations: int = 5                     # v0.3.0+ Safety limit for auto mode
     max_turns: int = 1
     max_tokens: int | None = 4096  # Default 4096, None uses provider default
     temperature: float = 0.7
@@ -380,10 +382,29 @@ class Client:
     Multi-turn conversation client with tool monitoring.
 
     Usage:
+        # Automatic tool execution (recommended, v0.3.0+)
+        options = AgentOptions(
+            system_prompt="...",
+            model="...",
+            base_url="...",
+            tools=[add, multiply],
+            auto_execute_tools=True  # Tools execute automatically
+        )
+        async with Client(options) as client:
+            await client.query("What's 25 + 17?")
+            async for msg in client.receive_messages():
+                # Tools execute automatically, just process responses
+                if isinstance(msg, TextBlock):
+                    print(msg.text)
+
+        # Manual tool execution (advanced)
         async with Client(options) as client:
             await client.query("Hello")
             async for msg in client.receive_messages():
-                # Process messages
+                if isinstance(msg, ToolUseBlock):
+                    result = await tool.execute(msg.input)
+                    await client.add_tool_result(msg.id, result, msg.name)
+                    await client.query("")  # Continue conversation
     """
 
     def __init__(self, options: AgentOptions):
@@ -391,6 +412,14 @@ class Client:
         self.client = create_client(options)
         self.message_history = []
         self.turn_count = 0
+        self._tool_registry = {}  # v0.3.0+ Built at init, validates no duplicates
+
+        # Build tool registry with duplicate validation
+        if options.tools:
+            for tool in options.tools:
+                if tool.name in self._tool_registry:
+                    raise ValueError(f"Duplicate tool name: {tool.name}")
+                self._tool_registry[tool.name] = tool
 
     async def __aenter__(self):
         return self
@@ -415,17 +444,141 @@ class Client:
             stream=True
         )
 
-    async def receive_messages(self) -> AsyncGenerator[TextBlock | ToolUseBlock, None]:
-        """Stream messages from the model"""
+    async def _continue_turn(self):
+        """
+        Continue conversation without re-firing hooks (v0.3.0+).
+
+        Used internally by auto-execution to feed tool results back
+        without triggering UserPromptSubmit hooks.
+        """
+        messages = format_messages(
+            self.options.system_prompt,
+            "",  # Empty prompt for continuation (mirrors manual query("") pattern)
+            self.message_history
+        )
+        # ... rest of API call
+
+    async def _receive_once(self) -> list[TextBlock | ToolUseBlock | ToolUseError]:
+        """
+        Consume stream once and return all blocks (v0.3.0+).
+
+        Helper for auto-execution to ensure stream is fully consumed
+        before executing tools and continuing.
+        """
+        blocks = []
         async for chunk in self.response_stream:
             text_block = self._aggregator.process_chunk(chunk)
             if text_block:
-                assistant_blocks.append(text_block)
-                yield text_block
+                blocks.append(text_block)
 
         for tool_block in self._aggregator.finalize_tools():
-            assistant_blocks.append(tool_block)
-            yield tool_block
+            blocks.append(tool_block)
+
+        return blocks
+
+    async def _auto_execute_loop(self) -> AsyncGenerator[TextBlock | ToolUseBlock | ToolUseError, None]:
+        """
+        Automatic tool execution loop (v0.3.0+).
+
+        Executes tools and feeds results back to the model automatically
+        until a text-only response or max_tool_iterations is reached.
+
+        Safety limits:
+        - max_tool_iterations (default 5) prevents infinite loops
+        - Unknown tools yield ToolUseError for monitoring
+        - Execution failures yield ToolUseError for monitoring
+
+        Error handling:
+        - Unknown tools: Pass error dict to add_tool_result(), yield ToolUseError
+        - Execution failures: Pass error dict to add_tool_result(), yield ToolUseError
+        """
+        iteration_count = 0
+
+        while iteration_count < self.options.max_tool_iterations:
+            blocks = await self._receive_once()
+
+            # Yield all blocks to user
+            for block in blocks:
+                yield block
+
+            # Check if any tools need execution
+            tool_blocks = [b for b in blocks if isinstance(b, ToolUseBlock)]
+            if not tool_blocks:
+                break  # No tools, we're done
+
+            # Execute all tools in this batch
+            for tool_block in tool_blocks:
+                tool_name = tool_block.name
+                tool = self._tool_registry.get(tool_name)
+
+                if not tool:
+                    # Unknown tool - yield error and pass to model
+                    error_payload = {
+                        "error": f"Tool '{tool_name}' not found in registry",
+                        "tool": tool_name
+                    }
+                    yield ToolUseError(
+                        error=f"Tool '{tool_name}' not found in registry",
+                        raw_data=str(tool_block.input)
+                    )
+                    await self.add_tool_result(
+                        tool_call_id=tool_block.id,
+                        content=error_payload,
+                        name=tool_name
+                    )
+                    continue
+
+                try:
+                    result = await tool.execute(tool_block.input)
+                    await self.add_tool_result(
+                        tool_call_id=tool_block.id,
+                        content=result,
+                        name=tool_name
+                    )
+                except Exception as exc:
+                    # Execution error - yield error and pass to model
+                    error_payload = {
+                        "error": str(exc),
+                        "tool": tool_name
+                    }
+                    yield ToolUseError(
+                        error=str(exc),
+                        raw_data=str(tool_block.input)
+                    )
+                    await self.add_tool_result(
+                        tool_call_id=tool_block.id,
+                        content=error_payload,
+                        name=tool_name
+                    )
+
+            # Continue conversation with tool results
+            await self._continue_turn()
+            iteration_count += 1
+
+    async def receive_messages(self) -> AsyncGenerator[TextBlock | ToolUseBlock | ToolUseError, None]:
+        """
+        Stream messages from the model.
+
+        In auto_execute_tools mode (v0.3.0+), tools execute automatically
+        and results feed back until text-only response or max_tool_iterations.
+
+        In manual mode, yields ToolUseBlock for user to execute.
+        """
+        if self.options.auto_execute_tools:
+            # Automatic mode - orchestrate tool execution
+            async for block in self._auto_execute_loop():
+                yield block
+        else:
+            # Manual mode - yield blocks as they arrive
+            async for chunk in self.response_stream:
+                text_block = self._aggregator.process_chunk(chunk)
+                if text_block:
+                    assistant_blocks.append(text_block)
+                    yield text_block
+
+            for tool_block in self._aggregator.finalize_tools():
+                assistant_blocks.append(tool_block)
+                yield tool_block
 
         self.turn_count += 1
 
@@ -1073,15 +1226,59 @@ async for msg in client.receive_messages():
 - **Type safety**: Automatic conversion with validation
 - **Clean API**: Matches Claude SDK's `@tool` ergonomics
 
-### 4. No Automatic Tool Execution (by design)
+### 4. Automatic Tool Execution (Opt-In, v0.3.0+)
 
-**Decision**: User controls when/how tools execute
+**Decision**: Provide both automatic and manual tool execution modes
 
 **Rationale**:
-- Agents need to log/monitor tool usage
-- Some tools have side effects requiring approval
-- Different agents have different execution strategies
-- Can add optional auto-execution in future
+- **Automatic mode** (`auto_execute_tools=True`) - Default "pit of success" path
+  - Tools execute automatically without boilerplate
+  - Simplifies common use cases significantly
+  - Safety limits prevent runaway loops (`max_tool_iterations`)
+  - ToolUseError blocks allow monitoring of failures
+- **Manual mode** (default, `auto_execute_tools=False`) - Advanced control
+  - User explicitly executes each tool
+  - Required for approval workflows
+  - Custom execution logic per agent
+  - Backward compatible with existing code
+
+**Automatic Mode Example**:
+```python
+options = AgentOptions(
+    system_prompt="You are a helpful assistant",
+    model="qwen2.5-32b-instruct",
+    base_url="http://localhost:1234/v1",
+    tools=[add, multiply],
+    auto_execute_tools=True,      # Enable automatic execution
+    max_tool_iterations=10         # Safety limit
+)
+
+async with Client(options) as client:
+    await client.query("What's 25 + 17, then multiply by 3?")
+    async for block in client.receive_messages():
+        # Tools execute automatically in the background
+        if isinstance(block, TextBlock):
+            print(block.text)  # Just get the final answer
+```
+
+**Manual Mode Example** (for custom execution logic):
+```python
+async with Client(options) as client:
+    await client.query("What's 25 + 17?")
+    async for block in client.receive_messages():
+        if isinstance(block, ToolUseBlock):
+            # User controls execution
+            result = await tool.execute(block.input)
+            await client.add_tool_result(block.id, result, block.name)
+            await client.query("")  # Continue conversation
+```
+
+**Design Features**:
+- Default `False` for backward compatibility
+- Tool registry built at init with duplicate validation
+- Error handling: Unknown tools and execution failures yield `ToolUseError`
+- Hooks work identically in both modes (PreToolUse/PostToolUse fire correctly)
+- Clean separation: auto mode via `_auto_execute_loop()`, manual via original flow
 
 ### 5. Minimal State Management
 
@@ -1268,17 +1465,17 @@ OpenAI-style streaming delivers tool calls incrementally. Arguments are streamed
 
 ## Implementation Complexity
 
-**Total LOC**: ~1200 lines (v0.2.4)
+**Total LOC**: ~1300 lines (v0.3.0)
 
 **Breakdown**:
 - types.py: ~100 lines (dataclasses + Tool types)
 - tools.py: ~270 lines (decorator, schema conversion)
 - utils.py: ~220 lines (client, formatting, aggregation)
-- client.py: ~265 lines (query + Client class)
+- client.py: ~365 lines (query + Client class + auto-execution) **[v0.3.0: +100 lines]**
 - context.py: ~170 lines (token estimation, truncation) **[v0.2.3]**
 - hooks.py: ~136 lines (event types, hook decision) **[v0.2.4]**
 - __init__.py: ~15 lines (exports)
-- Tests: ~1765 lines (comprehensive coverage)
+- Tests: ~1965 lines (comprehensive coverage) **[v0.3.0: +200 lines]**
 
 **v0.2.2 additions** (Tool System):
 - tools.py: 270 lines
@@ -1296,6 +1493,12 @@ OpenAI-style streaming delivers tool calls incrementally. Arguments are streamed
 - tests/test_hooks.py: 435 lines
 - examples/hooks_example.py: 320 lines
 - Updated client.py for hook integration (~30 lines added)
+
+**v0.3.0 additions** (Automatic Tool Execution):
+- Updated client.py: +100 lines (_tool_registry, _continue_turn, _receive_once, _auto_execute_loop)
+- tests/test_auto_execution.py: 200 lines (10 comprehensive tests)
+- Updated examples/calculator_tools.py: Now demonstrates both modes
+- Removed examples/calculator_auto.py: Redundant after consolidation
 
 ## Error Handling
 
@@ -1337,8 +1540,21 @@ OpenAI-style streaming delivers tool calls incrementally. Arguments are streamed
 - ✅ 14 comprehensive tests + 4 example patterns
 - ⏸️ **Intentionally NOT building**: Stop/SubagentStop hooks (not essential for local LLMs)
 
-**Planned (Phase 3+)**:
-- ⏳ Optional automatic tool execution
+**Completed (v0.3.0)** - Automatic Tool Execution:
+- ✅ `auto_execute_tools=True` flag in AgentOptions
+- ✅ `max_tool_iterations` safety limit (default 5)
+- ✅ Tool registry with duplicate validation at init
+- ✅ `_continue_turn()` for hook-free conversation continuation
+- ✅ `_receive_once()` helper for stream consumption
+- ✅ `_auto_execute_loop()` for orchestration with error handling
+- ✅ ToolUseError yields for unknown tools and execution failures
+- ✅ Structured error dicts to `add_tool_result()` for PostToolUse hooks
+- ✅ Works seamlessly with hooks (PreToolUse/PostToolUse fire correctly)
+- ✅ Backward compatible (defaults to `False` for manual mode)
+- ✅ 10 comprehensive tests covering all scenarios
+- ✅ Consolidated example showing both modes
+
+**Planned (Phase 4+)**:
 - ⏳ Permission system (allowedTools, disallowedTools)
 - ⏳ Session persistence (SQLite)
 - ⏳ Retry logic with exponential backoff
@@ -1434,8 +1650,21 @@ The technical design succeeds when:
 9. ✅ Breaking change documented (async add_tool_result)
 10. ✅ Local-first design (inline execution, no subprocess)
 
+**Phase 5 - Automatic Tool Execution (v0.3.0):**
+1. ✅ `auto_execute_tools=True` flag with backward compatibility
+2. ✅ `max_tool_iterations` safety limit (default 5)
+3. ✅ Tool registry with duplicate validation
+4. ✅ `_continue_turn()` avoids hook re-firing
+5. ✅ `_receive_once()` ensures stream fully consumed
+6. ✅ `_auto_execute_loop()` orchestrates execution with error handling
+7. ✅ ToolUseError yields for unknown tools and execution failures
+8. ✅ Structured error dicts for PostToolUse hook integration
+9. ✅ 10 comprehensive auto-execution tests (128 total)
+10. ✅ Consolidated example showing both automatic and manual modes
+11. ✅ Hooks work identically in both modes
+12. ✅ "Pit of success" design - auto mode is easiest path
+
 **Future Phases:**
 - ⏳ Permission system for tool control
-- ⏳ Optional automatic tool execution
 - ⏳ ThinkingBlock for chain-of-thought
 - ⏳ Message type improvements (SystemMessage, UserMessage)

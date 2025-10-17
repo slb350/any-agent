@@ -162,7 +162,7 @@ async def test_client_receive_messages_without_query():
 
     client = Client(options)
 
-    with pytest.raises(RuntimeError, match="Call query\\(\\) first"):
+    with pytest.raises(RuntimeError, match="Call query\\(\\) or _continue_turn\\(\\) first"):
         async for _ in client.receive_messages():
             pass
 

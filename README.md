@@ -115,7 +115,7 @@ See `examples/tool_use_agent.py` for progressively richer patterns (manual loop,
 Define tools using the `@tool` decorator for clean, type-safe function calling:
 
 ```python
-from open_agent import tool, Client, AgentOptions, ToolUseBlock
+from open_agent import tool, Client, AgentOptions, TextBlock, ToolUseBlock
 
 # Define tools
 @tool("get_weather", "Get current weather", {"location": str, "units": str})
@@ -132,12 +132,39 @@ async def calculate(args):
     result = ops[args["op"]](args["a"], args["b"])
     return {"result": result}
 
-# Use tools with agent
+# Enable automatic tool execution (recommended)
 options = AgentOptions(
     system_prompt="You are a helpful assistant with access to tools.",
     model="qwen2.5-32b-instruct",
     base_url="http://localhost:1234/v1",
-    tools=[get_weather, calculate]  # Register tools
+    tools=[get_weather, calculate],
+    auto_execute_tools=True,      # 🔥 Tools execute automatically
+    max_tool_iterations=10         # Safety limit for tool loops
+)
+
+async with Client(options) as client:
+    await client.query("What's 25 + 17?")
+
+    # Simply iterate - tools execute automatically!
+    async for block in client.receive_messages():
+        if isinstance(block, ToolUseBlock):
+            print(f"Tool called: {block.name}")
+        elif isinstance(block, TextBlock):
+            print(f"Response: {block.text}")
+```
+
+**Advanced: Manual Tool Execution**
+
+For custom execution logic or result interception:
+
+```python
+# Disable auto-execution
+options = AgentOptions(
+    system_prompt="You are a helpful assistant with access to tools.",
+    model="qwen2.5-32b-instruct",
+    base_url="http://localhost:1234/v1",
+    tools=[get_weather, calculate],
+    auto_execute_tools=False  # Manual mode
 )
 
 async with Client(options) as client:
@@ -145,7 +172,7 @@ async with Client(options) as client:
 
     async for block in client.receive_messages():
         if isinstance(block, ToolUseBlock):
-            # Execute the tool
+            # You execute the tool manually
             tool = {"calculate": calculate, "get_weather": get_weather}[block.name]
             result = await tool.execute(block.input)
 
@@ -157,10 +184,11 @@ async with Client(options) as client:
 ```
 
 **Key Features:**
+- **Automatic execution** (v0.3.0+) - Tools run automatically with safety limits
 - **Type-safe schemas** - Simple Python types (`str`, `int`, `float`, `bool`) or full JSON Schema
 - **OpenAI-compatible** - Works with any OpenAI function calling endpoint
 - **Clean decorator API** - Similar to Claude SDK's `@tool`
-- **Automatic schema conversion** - Python types → JSON Schema for the model
+- **Hook integration** - PreToolUse/PostToolUse hooks work in both modes
 
 See `examples/calculator_tools.py` and `examples/simple_tool.py` for complete examples.
 
@@ -601,15 +629,18 @@ async for msg in result:
 
 ```python
 class AgentOptions:
-    system_prompt: str                      # System prompt
-    model: str                              # Model name (required)
-    base_url: str                           # OpenAI-compatible endpoint URL (required)
-    tools: list[Tool] = []                  # Tool instances for function calling
+    system_prompt: str                          # System prompt
+    model: str                                  # Model name (required)
+    base_url: str                               # OpenAI-compatible endpoint URL (required)
+    tools: list[Tool] = []                      # Tool instances for function calling
     hooks: dict[str, list[HookHandler]] = None  # Lifecycle hooks for monitoring/control
-    max_turns: int = 1                      # Max conversation turns
-    max_tokens: int | None = 4096           # Tokens to generate (None uses provider default)
-    temperature: float = 0.7                # Sampling temperature
-    api_key: str = "not-needed"             # Most local servers don't need this
+    auto_execute_tools: bool = False            # Enable automatic tool execution (v0.3.0+)
+    max_tool_iterations: int = 5                # Max tool calls per query in auto mode
+    max_turns: int = 1                          # Max conversation turns
+    max_tokens: int | None = 4096               # Tokens to generate (None uses provider default)
+    temperature: float = 0.7                    # Sampling temperature
+    timeout: float = 60.0                       # Request timeout in seconds
+    api_key: str = "not-needed"                 # Most local servers don't need this
 ```
 
 **Note**: Use config helpers (`get_model()`, `get_base_url()`) for environment variable and provider support.

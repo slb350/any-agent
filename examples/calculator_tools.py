@@ -3,7 +3,7 @@
 Example: Calculator with Tools
 
 Demonstrates using the @tool decorator to give local LLMs function calling abilities.
-The agent can perform calculations by calling tools we define.
+Shows both automatic tool execution (recommended) and manual execution (advanced).
 
 Usage:
     python examples/calculator_tools.py
@@ -14,8 +14,7 @@ Requirements:
 """
 
 import asyncio
-import json
-from open_agent import tool, Client, AgentOptions, ToolUseBlock
+from open_agent import tool, Client, AgentOptions, TextBlock, ToolUseBlock
 
 
 # Define calculator tools
@@ -50,32 +49,7 @@ async def divide(args):
 
 
 async def main():
-    """Run calculator example"""
-    print("Calculator Agent with Tools")
-    print("=" * 50)
-    print()
-
-    # Create tool registry for easy lookup
-    tool_registry = {
-        "add": add,
-        "subtract": subtract,
-        "multiply": multiply,
-        "divide": divide,
-    }
-
-    # Configure agent with tools
-    options = AgentOptions(
-        system_prompt=(
-            "You are a helpful calculator assistant. "
-            "Use the provided tools to perform calculations. "
-            "Always show your work and explain the result."
-        ),
-        model="qwen2.5-32b-instruct",  # or your preferred model
-        base_url="http://localhost:1234/v1",
-        tools=[add, subtract, multiply, divide],
-        max_turns=5,
-        temperature=0.1,  # Low temperature for precise calculations
-    )
+    """Run calculator examples - both automatic and manual modes"""
 
     # Example calculations
     queries = [
@@ -84,45 +58,111 @@ async def main():
         "What's 7 times 8, then add 5?",
     ]
 
+    # ========================================
+    # AUTOMATIC TOOL EXECUTION (Recommended)
+    # ========================================
+    print("=" * 70)
+    print("AUTOMATIC TOOL EXECUTION (Recommended)")
+    print("=" * 70)
+    print("Tools execute automatically - simple and clean code!\n")
+
+    auto_options = AgentOptions(
+        system_prompt=(
+            "You are a helpful calculator assistant. "
+            "Use the provided tools to perform calculations. "
+            "Always show your work and explain the result."
+        ),
+        model="qwen2.5-32b-instruct",
+        base_url="http://localhost:1234/v1",
+        tools=[add, subtract, multiply, divide],
+        auto_execute_tools=True,  # 🔥 Enable automatic execution
+        max_tool_iterations=10,
+        max_turns=5,
+        temperature=0.1,
+    )
+
     for query in queries:
         print(f"User: {query}")
         print("-" * 50)
 
-        async with Client(options) as client:
+        async with Client(auto_options) as client:
             await client.query(query)
 
+            # Simply iterate - tools execute automatically!
             async for block in client.receive_messages():
                 if isinstance(block, ToolUseBlock):
-                    # Agent wants to use a tool
-                    print(f"🔧 Tool call: {block.name}")
-                    print(f"   Arguments: {json.dumps(block.input, indent=2)}")
-
-                    # Execute the tool
-                    tool_func = tool_registry.get(block.name)
-                    if tool_func:
-                        result = await tool_func.execute(block.input)
-                        print(f"   Result: {result}")
-
-                        # Send result back to agent
-                        await client.add_tool_result(
-                            tool_call_id=block.id,
-                            content=result,
-                            name=block.name
-                        )
-
-                        # Continue conversation to get agent's response
-                        await client.query("")  # Empty prompt to continue
-                        async for response in client.receive_messages():
-                            if hasattr(response, 'text'):
-                                print(f"\nAssistant: {response.text}")
-
-                elif hasattr(block, 'text'):
-                    # Text response from agent
+                    print(f"🔧 Tool: {block.name}({block.input})")
+                elif isinstance(block, TextBlock):
                     print(f"Assistant: {block.text}")
 
         print()
-        print("=" * 50)
-        print()
+
+    # ========================================
+    # MANUAL TOOL EXECUTION (Advanced)
+    # ========================================
+    print("\n" + "=" * 70)
+    print("MANUAL TOOL EXECUTION (Advanced)")
+    print("=" * 70)
+    print("For when you need custom execution logic or result handling.\n")
+
+    # Create tool registry for manual lookup
+    tool_registry = {
+        "add": add,
+        "subtract": subtract,
+        "multiply": multiply,
+        "divide": divide,
+    }
+
+    manual_options = AgentOptions(
+        system_prompt=(
+            "You are a helpful calculator assistant. "
+            "Use the provided tools to perform calculations. "
+            "Always show your work and explain the result."
+        ),
+        model="qwen2.5-32b-instruct",
+        base_url="http://localhost:1234/v1",
+        tools=[add, subtract, multiply, divide],
+        auto_execute_tools=False,  # Manual mode
+        max_turns=5,
+        temperature=0.1,
+    )
+
+    # Just show one example in manual mode
+    query = queries[0]
+    print(f"User: {query}")
+    print("-" * 50)
+
+    async with Client(manual_options) as client:
+        await client.query(query)
+
+        async for block in client.receive_messages():
+            if isinstance(block, ToolUseBlock):
+                # You manually execute the tool
+                print(f"🔧 Tool call: {block.name}")
+                print(f"   Arguments: {block.input}")
+
+                tool_func = tool_registry.get(block.name)
+                if tool_func:
+                    result = await tool_func.execute(block.input)
+                    print(f"   Result: {result}")
+
+                    # Send result back to agent
+                    await client.add_tool_result(
+                        tool_call_id=block.id,
+                        content=result,
+                        name=block.name
+                    )
+
+                    # Continue conversation to get agent's response
+                    await client.query("")
+                    async for response in client.receive_messages():
+                        if isinstance(response, TextBlock):
+                            print(f"Assistant: {response.text}")
+
+            elif isinstance(block, TextBlock):
+                print(f"Assistant: {block.text}")
+
+    print("\n" + "=" * 70)
 
 
 if __name__ == "__main__":
