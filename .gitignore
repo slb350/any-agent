@@ -59,6 +59,9 @@ coverage.xml
 .env
 .env.local
 
+# Secrets and tokens
+.tokens
+
 # IDEs
 .vscode/
 .idea/
