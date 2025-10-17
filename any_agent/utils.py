@@ -13,7 +13,7 @@ def create_client(options: AgentOptions) -> AsyncOpenAI:
     return AsyncOpenAI(
         base_url=options.base_url,
         api_key=options.api_key,
-        timeout=60.0
+        timeout=options.timeout
     )
 
 

@@ -50,6 +50,7 @@ class AgentOptions:
         max_turns: Maximum conversation turns
         max_tokens: Tokens to generate (None uses provider default)
         temperature: Sampling temperature
+        timeout: Request timeout in seconds (default 60.0)
         api_key: API key (most local servers don't need this)
 
     Examples:
@@ -75,4 +76,18 @@ class AgentOptions:
     max_turns: int = 1
     max_tokens: int | None = 4096  # Default 4096, None uses provider default
     temperature: float = 0.7
+    timeout: float = 60.0  # Request timeout in seconds
     api_key: str = "not-needed"
+
+    def __post_init__(self):
+        """Validate configuration"""
+        # Basic URL validation
+        if not self.base_url:
+            raise ValueError("base_url cannot be empty")
+
+        if not (self.base_url.startswith("http://") or self.base_url.startswith("https://")):
+            raise ValueError(f"base_url must start with http:// or https://, got: {self.base_url}")
+
+        # Basic model validation
+        if not self.model:
+            raise ValueError("model cannot be empty")
