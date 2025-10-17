@@ -5,6 +5,46 @@ All notable changes to Open Agent SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.2] - 2025-10-17
+
+### Added
+- **Tool System (Phase 1 Complete)** - First-class function calling support
+  - `@tool` decorator for defining tools with clean API
+  - Automatic Python type to JSON Schema conversion (`str`, `int`, `float`, `bool`, `list`, `dict`)
+  - Support for simple schemas (`{"param": str}`) and full JSON Schema
+  - `Tool` class with `execute()` and `to_openai_format()` methods
+  - `AgentOptions.tools` field for registering tools
+  - `ToolResultBlock` type for structured tool results
+  - Sync handler support - automatically wraps non-async functions
+  - Optional parameter handling with 3 methods:
+    - JSON Schema `default` field
+    - Explicit `required: False` flag
+    - Convenience `optional: True` flag
+  - `format_tools()` utility for OpenAI API format conversion
+- New examples:
+  - `examples/simple_tool.py` - Minimal tool usage example
+  - `examples/calculator_tools.py` - Full calculator with 4 tools (add/subtract/multiply/divide)
+- Test coverage:
+  - `tests/test_tools.py` - 16 comprehensive tests
+  - Type conversion tests
+  - Schema conversion tests (simple, mixed, JSON Schema, empty, optional)
+  - Tool decorator tests (creation, execution, complex schema, sync handlers)
+  - OpenAI format tests
+  - Error handling tests
+
+### Changed
+- Updated README with "Function Calling with Tools" section
+- Enhanced API Reference documentation with Tool system details
+- Updated project structure documentation
+- Client and query functions now send tools to API when configured
+- AssistantMessage content now includes ToolResultBlock
+
+### Technical
+- Tools integrate seamlessly with streaming and multi-turn conversations
+- Direct OpenAI tools API (no MCP dependency for simplicity)
+- All 85 tests passing (16 new tool tests)
+- Production-ready quality with comprehensive edge case coverage
+
 ## [0.2.1] - 2025-10-16
 
 ### Fixed
@@ -55,6 +95,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History
 
+- **0.2.2** - Tool system with @tool decorator (2025-10-17)
 - **0.2.1** - Environment variable consistency fix (2025-10-16)
 - **0.2.0** - Module rename to `open_agent` (2025-10-16)
 - **0.1.0** - Initial public release (2025-10-16)
