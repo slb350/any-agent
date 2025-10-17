@@ -43,6 +43,16 @@ class TestEstimateTokens:
             # Character-based: ~40 chars / 4 = ~10 tokens
             assert tokens > 0, "Should return non-zero token count"
 
+    def test_estimate_tokens_fallback_short_message(self):
+        """Fallback for very short content should still return >=1 token"""
+        with patch.dict(sys.modules, {"tiktoken": None}):
+            messages = [{"role": "user", "content": "Hi"}]
+
+            tokens = estimate_tokens(messages)
+
+            # "user" (4 chars) + "Hi" (2 chars) = 6 chars -> ceil(6/4) = 2 tokens
+            assert tokens >= 1, "Short messages should return at least 1 token"
+
     def test_estimate_tokens_empty_messages(self):
         """Test with empty message list"""
         tokens = estimate_tokens([])
@@ -67,6 +77,29 @@ class TestEstimateTokens:
 
         tokens = estimate_tokens(messages)
         assert tokens > 0, "Should handle complex content structures"
+
+    def test_estimate_tokens_includes_nested_function_arguments(self):
+        """Token estimation should include nested tool/function arguments"""
+        arguments = '{"query": "select * from table"}'
+        messages = [
+            {
+                "role": "assistant",
+                "content": [
+                    {
+                        "type": "tool_use",
+                        "id": "call_1",
+                        "name": "db_query",
+                        "input": {"sql": arguments},
+                    }
+                ],
+            }
+        ]
+
+        with patch.dict(sys.modules, {"tiktoken": None}):
+            tokens = estimate_tokens(messages)
+
+        # Should account for argument length (len(arguments) == 33)
+        assert tokens >= 9, f"Expected nested arguments to contribute tokens, got {tokens}"
 
     def test_estimate_tokens_custom_model(self):
         """Test with custom model parameter"""

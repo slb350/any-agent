@@ -9,10 +9,11 @@ Utilities:
     truncate_messages: Simple message history truncation
 
 Patterns:
-    See docs/context-utilities-design.md for usage patterns and examples.
+    See examples/context_management.py for usage patterns and examples.
 """
 
-from typing import Any
+import math
+from typing import Any, Iterable
 
 
 def estimate_tokens(
@@ -66,42 +67,23 @@ def estimate_tokens(
         for message in messages:
             num_tokens += 4  # Message formatting overhead
             for key, value in message.items():
-                if isinstance(value, str):
-                    num_tokens += len(encoding.encode(value))
-                    if key == "role":
-                        num_tokens += 1  # Role token
-                elif isinstance(value, list):
-                    # Handle content blocks (TextBlock, ToolUseBlock, etc.)
-                    for item in value:
-                        if isinstance(item, dict):
-                            # Recursively count tokens in nested structures
-                            for nested_value in item.values():
-                                if isinstance(nested_value, str):
-                                    num_tokens += len(encoding.encode(nested_value))
-                        elif isinstance(item, str):
-                            num_tokens += len(encoding.encode(item))
+                if key == "role" and isinstance(value, str):
+                    num_tokens += len(encoding.encode(value)) + 1  # Role token
+                    continue
+
+                for text_value in _iter_string_values(value):
+                    num_tokens += len(encoding.encode(text_value))
         num_tokens += 2  # Conversation-level overhead
         return num_tokens
 
     except ImportError:
         # Fallback: character-based approximation
         # Rough estimate: 1 token ≈ 4 characters
-        total_chars = 0
-        for message in messages:
-            for value in message.values():
-                if isinstance(value, str):
-                    total_chars += len(value)
-                elif isinstance(value, list):
-                    # Handle content blocks
-                    for item in value:
-                        if isinstance(item, dict):
-                            for nested_value in item.values():
-                                if isinstance(nested_value, str):
-                                    total_chars += len(nested_value)
-                        elif isinstance(item, str):
-                            total_chars += len(item)
-        # Character-based approximation
-        return total_chars // 4
+        total_chars = sum(len(text) for text in _iter_all_strings(messages))
+        if total_chars == 0:
+            return 0
+        # Character-based approximation (ceil for conservative estimate)
+        return math.ceil(total_chars / 4)
 
 
 def truncate_messages(
@@ -175,3 +157,22 @@ def truncate_messages(
 
 
 __all__ = ["estimate_tokens", "truncate_messages"]
+
+
+def _iter_all_strings(messages: list[dict[str, Any]]) -> Iterable[str]:
+    """Yield all string values from a list of message dicts."""
+    for message in messages:
+        for value in message.values():
+            yield from _iter_string_values(value)
+
+
+def _iter_string_values(value: Any) -> Iterable[str]:
+    """Recursively yield string values from nested structures."""
+    if isinstance(value, str):
+        yield value
+    elif isinstance(value, dict):
+        for nested in value.values():
+            yield from _iter_string_values(nested)
+    elif isinstance(value, list):
+        for item in value:
+            yield from _iter_string_values(item)
