@@ -1,13 +1,14 @@
-# Any-Agent SDK
+# Open Agent SDK
 
 > Lightweight Python SDK for local/self-hosted LLMs via OpenAI-compatible endpoints
 
+[![PyPI version](https://badge.fury.io/py/open-agent-sdk.svg)](https://pypi.org/project/open-agent-sdk/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## Overview
 
-Any-Agent SDK provides a clean, streaming API for working with OpenAI-compatible local model servers, making it easy to build AI agents with your own hardware.
+Open Agent SDK provides a clean, streaming API for working with OpenAI-compatible local model servers, making it easy to build AI agents with your own hardware.
 
 **Use Case**: Build powerful AI agents using local Qwen/Llama/Mistral models without cloud API costs or data privacy concerns.
 
@@ -35,14 +36,14 @@ Any-Agent SDK provides a clean, streaming API for working with OpenAI-compatible
 ### Installation
 
 ```bash
-pip install any-agent  # Coming soon to PyPI
+pip install open-agent-sdk
 ```
 
 For development:
 
 ```bash
-git clone https://github.com/slb350/any-agent.git
-cd any-agent
+git clone https://github.com/slb350/open-agent-sdk.git
+cd open-agent-sdk
 pip install -e .
 ```
 
@@ -206,7 +207,7 @@ These agents demonstrate:
 
 ## Configuration
 
-Any-Agent SDK uses config helpers to provide flexible configuration via environment variables, provider shortcuts, or explicit parameters:
+Open Agent SDK uses config helpers to provide flexible configuration via environment variables, provider shortcuts, or explicit parameters:
 
 ### Environment Variables (Recommended)
 
@@ -269,7 +270,7 @@ See [docs/configuration.md](docs/configuration.md) for complete guide.
 
 ## Why Not Just Use OpenAI Client?
 
-**Without any-agent** (raw OpenAI client):
+**Without open-agent-sdk** (raw OpenAI client):
 ```python
 from openai import AsyncOpenAI
 
@@ -288,7 +289,7 @@ async for chunk in response:
     # Track conversation state yourself
 ```
 
-**With any-agent**:
+**With open-agent-sdk**:
 ```python
 from any_agent import query, AgentOptions
 
@@ -375,7 +376,7 @@ async with Client(options: AgentOptions) as client:
 ## Project Structure
 
 ```
-any-agent/
+open-agent-sdk/
 ├── any_agent/
 │   ├── __init__.py        # query, Client, AgentOptions exports
 │   ├── client.py          # Streaming query(), Client, tool helper

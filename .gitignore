@@ -25,6 +25,8 @@ parts/
 sdist/
 var/
 wheels/
+*.tar.gz
+*.whl
 *.egg-info/
 .installed.cfg
 *.egg
