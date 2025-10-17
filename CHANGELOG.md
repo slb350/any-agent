@@ -5,6 +5,48 @@ All notable changes to Open Agent SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.3] - 2025-10-17
+
+### Added
+- **Context Management Utilities (Opt-In)** - Manual history management helpers
+  - `estimate_tokens(messages, model)` - Token counting with tiktoken (~90% accurate) + character-based fallback (~75-85%)
+  - `truncate_messages(messages, keep, preserve_system)` - Simple truncation utility preserving system prompt
+  - Optional `[context]` dependency for better accuracy: `pip install open-agent-sdk[context]`
+  - Helper functions `_iter_all_strings()` and `_iter_string_values()` for clean recursive string extraction
+  - Conservative token estimation using `math.ceil()` (rounds up to prevent underestimation)
+- New example: `examples/context_management.py` - 4 detailed usage patterns
+  - Pattern 1: Stateless agents (recommended for single tasks)
+  - Pattern 2: Manual truncation at natural breakpoints
+  - Pattern 3: Token budget monitoring with periodic checks
+  - Pattern 4: External memory (RAG-lite pattern)
+- Test coverage: 19 comprehensive tests in `tests/test_context.py` (104 total)
+  - Token estimation tests (tiktoken + fallback modes)
+  - Truncation tests (edge cases, system preservation)
+  - Integration tests with realistic workflows
+  - Tests for nested tool/function arguments
+
+### Changed
+- Updated README with "Context Management" section
+- Enhanced `docs/technical-design.md` with Section 5 (context.py) and Design Decision #8
+- Moved internal design docs to `archive/` folder (not published with package)
+
+### Design Philosophy
+- **Opt-in, not automatic**: No silent mutations of conversation history
+- **User control**: Users decide when and how to manage context
+- **Domain-specific strategies**: Copy editing ≠ research agents ≠ code reviewers
+- **Explicit over implicit**: Manual management empowers power users
+- **Intentionally NOT building automatic compaction** due to:
+  - Token accuracy varies by model family (Qwen, Llama, Mistral have different tokenizers)
+  - Risk of silently breaking context or tool chains
+  - Natural model limits (8k-32k tokens) exist regardless
+  - Users understand their domain better than generic heuristics
+
+### Technical
+- All 104 tests passing (19 new context tests)
+- Clean implementation: 170 LOC for context.py
+- Optional dependency integration (tiktoken)
+- Comprehensive documentation (4 patterns, design rationale)
+
 ## [0.2.2] - 2025-10-17
 
 ### Added
@@ -95,6 +137,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History
 
+- **0.2.3** - Context management utilities (opt-in, manual) (2025-10-17)
 - **0.2.2** - Tool system with @tool decorator (2025-10-17)
 - **0.2.1** - Environment variable consistency fix (2025-10-16)
 - **0.2.0** - Module rename to `open_agent` (2025-10-16)
