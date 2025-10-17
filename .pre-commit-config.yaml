@@ -6,8 +6,8 @@ repos:
       - id: end-of-file-fixer
   - repo: local
     hooks:
-      - id: pytest-unit
-        name: Run unit tests (excluding integration)
-        entry: ./venv/bin/pytest tests/ --ignore=tests/integration/ -v --tb=short
+      - id: pytest-all
+        name: Run all tests
+        entry: ./venv/bin/pytest tests/ -v --tb=short
         language: system
         pass_filenames: false

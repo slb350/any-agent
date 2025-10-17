@@ -397,13 +397,8 @@ open-agent-sdk/
 │   ├── config_examples.py      # Configuration patterns
 │   └── simple_with_env.py      # Environment variable config
 ├── tests/
-│   ├── integration/               # Provider integration tests
-│   │   ├── test_lmstudio.py      # LM Studio test suite
-│   │   ├── test_llamacpp.py      # llama.cpp test suite
-│   │   ├── test_multiturn_network.py
-│   │   ├── test_network_lmstudio.py
-│   │   ├── test_ollama_kimi.py
-│   │   └── test_timeout.py
+│   ├── integration/               # Integration-style tests using fakes
+│   │   └── test_client_behaviour.py  # Streaming, multi-turn, tool flow coverage
 │   ├── test_agent_options.py
 │   ├── test_client.py
 │   ├── test_config.py
@@ -427,13 +422,9 @@ open-agent-sdk/
 - `config_examples.py` – Comprehensive reference: provider shortcuts, priority, and all config patterns
 - `ollama_chat.py` – Multi-turn chat loop with Ollama, including tool-call logging
 
-### Provider Integration Tests
+### Integration Tests
 Located in `tests/integration/`:
-- `test_lmstudio.py` – Comprehensive LM Studio test suite
-- `test_llamacpp.py` – llama.cpp provider test suite
-- `test_ollama_kimi.py` – Quick validation for Ollama with kimi-k2 model
-- `test_multiturn_network.py` – Network multi-turn conversation tests
-- `test_timeout.py` – Timeout configuration verification
+- `test_client_behaviour.py` – Fake AsyncOpenAI client covering streaming, multi-turn history, and tool-call flows without hitting real servers
 
 ## Development Status
 
@@ -467,11 +458,24 @@ See [docs/provider-compatibility.md](docs/provider-compatibility.md) for detaile
 
 ## Testing
 
+Integration-style tests run entirely against lightweight fakes, so they are safe to execute locally and in pre-commit:
+
 ```bash
-./venv/bin/python -m pytest
+python -m pytest tests/integration
 ```
 
-Add `-k` or a specific path when you want to target a subset of the suite (`tests/test_client.py`, etc.).
+Add `-k` or a specific path when you want to target a subset of the unit tests (`tests/test_client.py`, etc.). If you use a virtual environment, prefix commands with `./venv/bin/python -m`.
+
+## Pre-commit Hooks
+
+Install hooks once per clone:
+
+```bash
+pip install pre-commit
+pre-commit install
+```
+
+Running `pre-commit run --all-files` will execute formatting checks and the integration tests (`python -m pytest tests/integration`) before you push changes.
 
 ## Requirements
 
