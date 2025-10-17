@@ -260,8 +260,8 @@ async with Client(options: AgentOptions) as client:
 **Local models** (LM Studio, Ollama, llama.cpp):
 - **GPT-OSS-120B** - Best in class for speed and quality
 - **Qwen 3 30B** - Excellent instruction following, good for most tasks
-- **GPT-OSS-20B - Solid all-around performance
-- **Mistral 7B - Fast and efficient for simple agents
+- **GPT-OSS-20B** - Solid all-around performance
+- **Mistral 7B** - Fast and efficient for simple agents
 
 **Cloud-proxied via local gateway** (Ollama cloud provider, custom gateway):
 - **kimi-k2:1t-cloud** - Tested and working via Ollama gateway
