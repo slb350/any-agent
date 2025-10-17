@@ -164,6 +164,87 @@ async with Client(options) as client:
 
 See `examples/calculator_tools.py` and `examples/simple_tool.py` for complete examples.
 
+## Context Management
+
+Local models have fixed context windows (typically 8k-32k tokens). The SDK provides **opt-in utilities** for manual history management—no silent mutations, you stay in control.
+
+### Token Estimation & Truncation
+
+```python
+from open_agent import Client, AgentOptions
+from open_agent.context import estimate_tokens, truncate_messages
+
+async with Client(options) as client:
+    # Long conversation...
+    for i in range(50):
+        await client.query(f"Question {i}")
+        async for msg in client.receive_messages():
+            pass
+
+    # Check token usage
+    tokens = estimate_tokens(client.history)
+    print(f"Context size: ~{tokens} tokens")
+
+    # Manually truncate when needed
+    if tokens > 28000:
+        client.message_history = truncate_messages(client.history, keep=10)
+```
+
+### Recommended Patterns
+
+**1. Stateless Agents** (Best for single-task agents):
+```python
+# Process each task independently - no history accumulation
+for task in tasks:
+    async with Client(options) as client:
+        await client.query(task)
+        # Client disposed, fresh context for next task
+```
+
+**2. Manual Truncation** (At natural breakpoints):
+```python
+from open_agent.context import truncate_messages
+
+async with Client(options) as client:
+    for task in tasks:
+        await client.query(task)
+        # Truncate after each major task
+        client.message_history = truncate_messages(client.history, keep=5)
+```
+
+**3. External Memory** (RAG-lite for research agents):
+```python
+# Store important facts in database, keep conversation context small
+database = {}
+async with Client(options) as client:
+    await client.query("Research topic X")
+    # Save response to database
+    database["topic_x"] = extract_facts(response)
+
+    # Clear history, query database when needed
+    client.message_history = truncate_messages(client.history, keep=0)
+```
+
+### Why Manual?
+
+The SDK **intentionally** does not auto-compact history because:
+- **Domain-specific needs**: Copy editors need different strategies than research agents
+- **Token accuracy varies**: Each model family has different tokenizers
+- **Risk of breaking context**: Silently removing messages could break tool chains
+- **Natural limits exist**: Compaction doesn't bypass model context windows
+
+### Installing Token Estimation
+
+For better token estimation accuracy (optional):
+
+```bash
+pip install open-agent-sdk[context]  # Adds tiktoken
+```
+
+Without `tiktoken`, falls back to character-based approximation (~75-85% accurate).
+
+See `examples/context_management.py` for complete patterns and usage.
+
 ## 🚀 Practical Examples
 
 We've included two production-ready agents that demonstrate real-world usage:
@@ -460,6 +541,7 @@ open-agent-sdk/
 │   ├── __init__.py        # query, Client, AgentOptions exports
 │   ├── client.py          # Streaming query(), Client, tool helper
 │   ├── config.py          # Env/provider helpers
+│   ├── context.py         # Token estimation and truncation utilities
 │   ├── tools.py           # Tool decorator and schema conversion
 │   ├── types.py           # Dataclasses for options and blocks
 │   └── utils.py           # OpenAI client + ToolCallAggregator
@@ -473,6 +555,7 @@ open-agent-sdk/
 │   ├── calculator_tools.py     # Function calling with @tool decorator
 │   ├── simple_tool.py          # Minimal tool usage example
 │   ├── tool_use_agent.py       # Complete tool use patterns
+│   ├── context_management.py   # Manual history management patterns
 │   ├── simple_lmstudio.py      # Basic usage with LM Studio
 │   ├── ollama_chat.py          # Multi-turn chat example
 │   ├── config_examples.py      # Configuration patterns
@@ -483,6 +566,7 @@ open-agent-sdk/
 │   ├── test_agent_options.py
 │   ├── test_client.py
 │   ├── test_config.py
+│   ├── test_context.py            # Context utilities (token estimation, truncation)
 │   ├── test_query.py
 │   ├── test_tools.py              # Tool decorator and schema conversion
 │   └── test_utils.py
@@ -503,6 +587,7 @@ open-agent-sdk/
 - `simple_with_env.py` – Using environment variables with config helpers and fallbacks
 - `config_examples.py` – Comprehensive reference: provider shortcuts, priority, and all config patterns
 - `ollama_chat.py` – Multi-turn chat loop with Ollama, including tool-call logging
+- `context_management.py` – Manual history management patterns (stateless, truncation, token monitoring, RAG-lite)
 
 ### Integration Tests
 Located in `tests/integration/`:
