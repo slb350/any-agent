@@ -1,6 +1,6 @@
 """Simple query example with LM Studio"""
 import asyncio
-from any_agent import query, AgentOptions, TextBlock, ToolUseBlock, ToolUseError
+from open_agent import query, AgentOptions, TextBlock, ToolUseBlock, ToolUseError
 
 
 async def main():

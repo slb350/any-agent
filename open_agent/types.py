@@ -62,7 +62,7 @@ class AgentOptions:
         )
 
         # Using config helpers in your agent (optional)
-        from any_agent.config import get_base_url, get_model
+        from open_agent.config import get_base_url, get_model
 
         AgentOptions(
             system_prompt="...",

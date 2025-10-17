@@ -1,8 +1,8 @@
 """Test timeout parameter with Ollama"""
 import asyncio
 import time
-from any_agent import query, AgentOptions, TextBlock
-from any_agent.config import get_base_url
+from open_agent import query, AgentOptions, TextBlock
+from open_agent.config import get_base_url
 
 
 async def test_default_timeout():

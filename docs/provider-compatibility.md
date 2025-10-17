@@ -48,7 +48,7 @@ This document tracks real-world testing results with different OpenAI-compatible
 
 **Example Configuration**:
 ```python
-from any_agent import AgentOptions
+from open_agent import AgentOptions
 
 # Network LM Studio
 options = AgentOptions(
@@ -102,8 +102,8 @@ cmake --build build --parallel 8
 
 **Example Configuration**:
 ```python
-from any_agent import AgentOptions
-from any_agent.config import get_base_url
+from open_agent import AgentOptions
+from open_agent.config import get_base_url
 
 options = AgentOptions(
     system_prompt="You are a helpful assistant",
@@ -121,8 +121,8 @@ options = AgentOptions(
 
 **Configuration**:
 ```python
-from any_agent import AgentOptions
-from any_agent.config import get_base_url
+from open_agent import AgentOptions
+from open_agent.config import get_base_url
 
 options = AgentOptions(
     system_prompt="...",

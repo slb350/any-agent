@@ -12,8 +12,8 @@ Prerequisites:
     - kimi-k2:1t-cloud model available (ollama list)
 """
 import asyncio
-from any_agent import query, Client, AgentOptions, TextBlock, ToolUseBlock
-from any_agent.config import get_base_url
+from open_agent import query, Client, AgentOptions, TextBlock, ToolUseBlock
+from open_agent.config import get_base_url
 
 
 async def test_simple_query():
@@ -137,7 +137,7 @@ async def test_config_helpers():
     print("TEST 3: Config Helper Integration")
     print("=" * 60)
 
-    from any_agent.config import get_model, get_base_url
+    from open_agent.config import get_model, get_base_url
 
     # Test fallback values
     model = get_model("kimi-k2:1t-cloud")  # Fallback since no env var set

@@ -11,8 +11,8 @@ AgentOptions requires model and base_url - use config helpers to resolve them.
 """
 import asyncio
 import os
-from any_agent import query, AgentOptions, TextBlock
-from any_agent.config import get_model, get_base_url
+from open_agent import query, AgentOptions, TextBlock
+from open_agent.config import get_model, get_base_url
 
 
 async def example_explicit():

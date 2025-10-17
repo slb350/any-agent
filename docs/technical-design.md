@@ -19,7 +19,7 @@ Note: While the SDK targets local/self-hosted endpoints, it also works with loca
                 │ import query, Client, AgentOptions
                 │
 ┌───────────────▼──────────────────────┐
-│  any_agent/                          │
+│  open_agent/                          │
 │  ├── client.py                       │
 │  │   ├── query()      ◄── Single turn
 │  │   └── Client       ◄── Multi-turn │
@@ -383,7 +383,7 @@ class Client:
 
 **Agent's responsibility**:
 ```python
-from any_agent import Client, AgentOptions
+from open_agent import Client, AgentOptions
 from my_agent.database import MyCustomDatabase
 
 class MyAgent:
@@ -399,7 +399,7 @@ class MyAgent:
             self.db.save_metadata(client.turn_metadata)
 ```
 
-**Future possibility**: Optional `any_agent.extras.storage` for basic conversation storage:
+**Future possibility**: Optional `open_agent.extras.storage` for basic conversation storage:
 - Install separately: `pip install open-agent-sdk[storage]`
 - Simple schema for developers who don't need custom
 - But NOT in core - keeps main package minimal

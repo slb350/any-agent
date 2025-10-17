@@ -1,6 +1,6 @@
 [project]
 name = "open-agent-sdk"
-version = "0.1.0"
+version = "0.2.0"
 description = "Lightweight Python SDK for local/self-hosted LLMs via OpenAI-compatible endpoints"
 authors = [
     {name = "Open Agent SDK Contributors"},
@@ -48,4 +48,4 @@ requires = ["setuptools>=68.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["any_agent"]
+packages = ["open_agent"]

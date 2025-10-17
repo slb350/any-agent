@@ -1,7 +1,7 @@
 """Tests for AgentOptions dataclass"""
 import os
 import pytest
-from any_agent.types import AgentOptions
+from open_agent.types import AgentOptions
 
 
 def test_agent_options_minimal():

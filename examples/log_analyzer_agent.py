@@ -33,8 +33,8 @@ from datetime import datetime, timedelta
 from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional
-from any_agent import Client, AgentOptions, TextBlock
-from any_agent.config import get_model, get_base_url
+from open_agent import Client, AgentOptions, TextBlock
+from open_agent.config import get_model, get_base_url
 
 
 class LogEntry:

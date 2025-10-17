@@ -2,7 +2,7 @@
 import os
 import pytest
 from pathlib import Path
-from any_agent.config import get_base_url, get_model, PROVIDER_DEFAULTS, load_config_file
+from open_agent.config import get_base_url, get_model, PROVIDER_DEFAULTS, load_config_file
 
 
 def test_get_base_url_explicit():

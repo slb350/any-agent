@@ -51,7 +51,7 @@ summary = await client.summarize(max_tokens=100)
 - Configurable retry strategy for network failures
 - Automatic reconnection on stream interruption
 - Better error messages with suggested fixes
-- **File**: `any_agent/retry.py`
+- **File**: `open_agent/retry.py`
 
 ### 3. Advanced Examples (Priority: Low)
 - RAG agent with embeddings

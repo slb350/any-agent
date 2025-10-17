@@ -32,7 +32,7 @@ Resolves `base_url` in this priority order:
 Simplest approach - pass everything explicitly:
 
 ```python
-from any_agent import AgentOptions
+from open_agent import AgentOptions
 
 options = AgentOptions(
     system_prompt="You are a helpful assistant.",
@@ -54,8 +54,8 @@ export ANY_AGENT_MODEL="qwen/qwen3-30b-a3b-2507"
 Then in Python:
 
 ```python
-from any_agent import AgentOptions
-from any_agent.config import get_model, get_base_url
+from open_agent import AgentOptions
+from open_agent.config import get_model, get_base_url
 
 # Config helpers read from environment
 options = AgentOptions(
@@ -75,8 +75,8 @@ options = AgentOptions(
 Use built-in defaults for common providers:
 
 ```python
-from any_agent import AgentOptions
-from any_agent.config import get_base_url
+from open_agent import AgentOptions
+from open_agent.config import get_base_url
 
 # For Ollama
 options = AgentOptions(
@@ -107,8 +107,8 @@ options = AgentOptions(
 Provide fallbacks when environment variables aren't set:
 
 ```python
-from any_agent import AgentOptions
-from any_agent.config import get_model, get_base_url
+from open_agent import AgentOptions
+from open_agent.config import get_model, get_base_url
 
 options = AgentOptions(
     system_prompt="You are a helpful assistant.",
@@ -141,8 +141,8 @@ max_tokens: 4096
 Load and use:
 
 ```python
-from any_agent import AgentOptions
-from any_agent.config import load_config_file
+from open_agent import AgentOptions
+from open_agent.config import load_config_file
 
 config = load_config_file()
 
@@ -158,8 +158,8 @@ options = AgentOptions(
 
 ```python
 import os
-from any_agent import AgentOptions
-from any_agent.config import get_base_url
+from open_agent import AgentOptions
+from open_agent.config import get_base_url
 
 os.environ["ANY_AGENT_BASE_URL"] = "http://env-server:1234/v1"
 
@@ -177,8 +177,8 @@ print(options.base_url)
 
 ```python
 import os
-from any_agent import AgentOptions
-from any_agent.config import get_base_url
+from open_agent import AgentOptions
+from open_agent.config import get_base_url
 
 os.environ["ANY_AGENT_BASE_URL"] = "http://env-server:1234/v1"
 
@@ -195,8 +195,8 @@ print(options.base_url)
 ### Provider Shortcut Wins Over Default
 
 ```python
-from any_agent import AgentOptions
-from any_agent.config import get_base_url
+from open_agent import AgentOptions
+from open_agent.config import get_base_url
 
 options = AgentOptions(
     system_prompt="Test",
@@ -215,8 +215,8 @@ print(options.base_url)
 Use provider shortcuts with fallbacks for quick local testing:
 
 ```python
-from any_agent import AgentOptions
-from any_agent.config import get_base_url
+from open_agent import AgentOptions
+from open_agent.config import get_base_url
 
 options = AgentOptions(
     system_prompt="Test",
@@ -236,8 +236,8 @@ export ANY_AGENT_MODEL="qwen/qwen3-30b-a3b-2507"
 ```
 
 ```python
-from any_agent import AgentOptions
-from any_agent.config import get_model, get_base_url
+from open_agent import AgentOptions
+from open_agent.config import get_model, get_base_url
 
 # Code stays the same - config comes from environment
 options = AgentOptions(
@@ -252,7 +252,7 @@ options = AgentOptions(
 Override with explicit parameters in tests:
 
 ```python
-from any_agent import AgentOptions
+from open_agent import AgentOptions
 
 def test_agent():
     options = AgentOptions(
@@ -274,8 +274,8 @@ export ANY_AGENT_MODEL="qwen/qwen3-30b-a3b-2507"
 
 ```python
 import asyncio
-from any_agent import query, AgentOptions, TextBlock
-from any_agent.config import get_model, get_base_url
+from open_agent import query, AgentOptions, TextBlock
+from open_agent.config import get_model, get_base_url
 
 async def main():
     # Config helpers read from environment
@@ -298,7 +298,7 @@ asyncio.run(main())
 ### Explicit Configuration
 
 ```python
-from any_agent import AgentOptions
+from open_agent import AgentOptions
 
 options = AgentOptions(
     system_prompt="...",
@@ -310,8 +310,8 @@ options = AgentOptions(
 ### Mixed Configuration with Fallbacks
 
 ```python
-from any_agent import AgentOptions
-from any_agent.config import get_model, get_base_url
+from open_agent import AgentOptions
+from open_agent.config import get_model, get_base_url
 
 # Env vars override fallbacks
 # export ANY_AGENT_BASE_URL="https://server.com/v1"

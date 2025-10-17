@@ -1,6 +1,6 @@
 """Test multi-turn conversation with network LM Studio"""
 import asyncio
-from any_agent import Client, AgentOptions, TextBlock, ToolUseBlock, ToolUseError
+from open_agent import Client, AgentOptions, TextBlock, ToolUseBlock, ToolUseError
 
 
 async def main():

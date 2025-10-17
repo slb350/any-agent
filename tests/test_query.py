@@ -4,8 +4,8 @@ from typing import Any, List
 
 import pytest
 
-from any_agent import query, AgentOptions
-from any_agent.types import AssistantMessage, TextBlock, ToolUseBlock
+from open_agent import query, AgentOptions
+from open_agent.types import AssistantMessage, TextBlock, ToolUseBlock
 
 
 class MockAsyncStream:
@@ -82,7 +82,7 @@ async def test_query_streams_text_and_tool(monkeypatch):
     mock_client = MockOpenAIClient(chunks)
 
     monkeypatch.setattr(
-        "any_agent.client.create_client",
+        "open_agent.client.create_client",
         lambda options: mock_client
     )
 
@@ -125,7 +125,7 @@ async def test_query_handles_accumulative_streams(monkeypatch):
     ]
 
     mock_client = MockOpenAIClient(chunks)
-    monkeypatch.setattr("any_agent.client.create_client", lambda _options: mock_client)
+    monkeypatch.setattr("open_agent.client.create_client", lambda _options: mock_client)
 
     options = AgentOptions(
         system_prompt="System",
@@ -163,7 +163,7 @@ async def test_query_propagates_errors_and_closes_client(monkeypatch):
             self.closed = True
 
     failing_client = FailingClient()
-    monkeypatch.setattr("any_agent.client.create_client", lambda _options: failing_client)
+    monkeypatch.setattr("open_agent.client.create_client", lambda _options: failing_client)
 
     options = AgentOptions(
         system_prompt="System",

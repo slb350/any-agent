@@ -4,8 +4,8 @@ from typing import Any
 
 import pytest
 
-from any_agent import Client, AgentOptions
-from any_agent.types import TextBlock, ToolUseBlock
+from open_agent import Client, AgentOptions
+from open_agent.types import TextBlock, ToolUseBlock
 
 
 def test_client_initialization():
@@ -312,7 +312,7 @@ async def test_client_query_failure_does_not_mutate_history(monkeypatch):
             self.closed = True
 
     failing_client = FailingMockClient()
-    monkeypatch.setattr("any_agent.client.create_client", lambda _options: failing_client)
+    monkeypatch.setattr("open_agent.client.create_client", lambda _options: failing_client)
 
     options = AgentOptions(
         system_prompt="System",
@@ -347,7 +347,7 @@ async def test_client_context_manager_closes_underlying_client(monkeypatch):
             self.closed = True
 
     closing_client = ClosingMockClient()
-    monkeypatch.setattr("any_agent.client.create_client", lambda _options: closing_client)
+    monkeypatch.setattr("open_agent.client.create_client", lambda _options: closing_client)
 
     options = AgentOptions(
         system_prompt="System",

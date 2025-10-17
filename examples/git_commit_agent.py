@@ -29,8 +29,8 @@ import sys
 import json
 import re
 from typing import Dict, List, Tuple
-from any_agent import Client, AgentOptions, TextBlock
-from any_agent.config import get_model, get_base_url
+from open_agent import Client, AgentOptions, TextBlock
+from open_agent.config import get_model, get_base_url
 
 
 class GitCommitAgent:

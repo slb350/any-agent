@@ -6,8 +6,8 @@ Prerequisites:
     - Check available models: ollama list
 """
 import asyncio
-from any_agent import Client, AgentOptions, TextBlock, ToolUseBlock, ToolUseError
-from any_agent.config import get_base_url
+from open_agent import Client, AgentOptions, TextBlock, ToolUseBlock, ToolUseError
+from open_agent.config import get_base_url
 
 
 async def main():

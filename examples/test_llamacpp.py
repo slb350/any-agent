@@ -9,8 +9,8 @@ Tests SDK features with llama.cpp's OpenAI-compatible API:
 """
 import asyncio
 import os
-from any_agent import query, Client, AgentOptions, TextBlock, ToolUseBlock, ToolUseError
-from any_agent.config import get_model, get_base_url
+from open_agent import query, Client, AgentOptions, TextBlock, ToolUseBlock, ToolUseError
+from open_agent.config import get_model, get_base_url
 
 
 # llama.cpp configuration

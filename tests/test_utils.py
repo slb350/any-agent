@@ -3,8 +3,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from any_agent.utils import format_messages, create_client, ToolCallAggregator
-from any_agent.types import AgentOptions, TextBlock, ToolUseBlock, ToolUseError
+from open_agent.utils import format_messages, create_client, ToolCallAggregator
+from open_agent.types import AgentOptions, TextBlock, ToolUseBlock, ToolUseError
 
 
 def test_format_messages_basic():

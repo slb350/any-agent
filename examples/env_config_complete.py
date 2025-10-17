@@ -12,8 +12,8 @@ Usage:
 Without env vars, get_model() returns None and raises a helpful error.
 """
 import asyncio
-from any_agent import query, AgentOptions, TextBlock
-from any_agent.config import get_base_url, get_model
+from open_agent import query, AgentOptions, TextBlock
+from open_agent.config import get_base_url, get_model
 
 
 async def main():

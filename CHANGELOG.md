@@ -5,6 +5,27 @@ All notable changes to Open Agent SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2025-10-16
+
+### BREAKING CHANGES
+- Changed module name from `any_agent` to `open_agent`
+- All imports now use `from open_agent import ...` instead of `from any_agent import ...`
+
+### Changed
+- Renamed package module to match PyPI package name for consistency
+- Updated all examples and documentation to use new import path
+- Better alignment between package name (open-agent-sdk) and module name (open_agent)
+
+### Migration Guide
+If upgrading from v0.1.0:
+```python
+# Old (v0.1.0)
+from any_agent import query, AgentOptions
+
+# New (v0.2.0)
+from open_agent import query, AgentOptions
+```
+
 ## [0.1.0] - 2025-10-16
 
 ### Added

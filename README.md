@@ -51,7 +51,7 @@ pip install -e .
 
 ```python
 import asyncio
-from any_agent import query, AgentOptions
+from open_agent import query, AgentOptions
 
 async def main():
     options = AgentOptions(
@@ -79,8 +79,8 @@ asyncio.run(main())
 ### Multi-Turn Conversation (Ollama)
 
 ```python
-from any_agent import Client, AgentOptions, TextBlock, ToolUseBlock
-from any_agent.config import get_base_url
+from open_agent import Client, AgentOptions, TextBlock, ToolUseBlock
+from open_agent.config import get_base_url
 
 def run_my_tool(name: str, params: dict) -> dict:
     # Replace with your tool execution logic
@@ -217,8 +217,8 @@ export ANY_AGENT_MODEL="qwen/qwen3-30b-a3b-2507"
 ```
 
 ```python
-from any_agent import AgentOptions
-from any_agent.config import get_model, get_base_url
+from open_agent import AgentOptions
+from open_agent.config import get_model, get_base_url
 
 # Config helpers read from environment
 options = AgentOptions(
@@ -231,7 +231,7 @@ options = AgentOptions(
 ### Provider Shortcuts
 
 ```python
-from any_agent.config import get_base_url
+from open_agent.config import get_base_url
 
 # Use built-in defaults for common providers
 options = AgentOptions(
@@ -291,7 +291,7 @@ async for chunk in response:
 
 **With open-agent-sdk**:
 ```python
-from any_agent import query, AgentOptions
+from open_agent import query, AgentOptions
 
 options = AgentOptions(
     system_prompt=system_prompt,
@@ -377,7 +377,7 @@ async with Client(options: AgentOptions) as client:
 
 ```
 open-agent-sdk/
-├── any_agent/
+├── open_agent/
 │   ├── __init__.py        # query, Client, AgentOptions exports
 │   ├── client.py          # Streaming query(), Client, tool helper
 │   ├── config.py          # Env/provider helpers
