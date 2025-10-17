@@ -33,6 +33,9 @@ Note: While the SDK targets local/self-hosted endpoints, it also works with loca
 │  │   ├── @tool       ◄── Decorator   │
 │  │   ├── Tool        ◄── Definition  │
 │  │   └── Schema conversion           │
+│  ├── context.py      ◄── v0.2.3      │
+│  │   ├── estimate_tokens()           │
+│  │   └── truncate_messages()         │
 │  └── utils.py                        │
 │      ├── create_client()             │
 │      ├── format_messages()           │
@@ -427,6 +430,174 @@ class Client:
             pass
 ```
 
+### 5. context.py - Context Management Utilities (v0.2.3+)
+
+**Philosophy**: Opt-in utilities for manual history management, NOT automatic compaction.
+
+**Why manual?**
+- Domain-specific needs vary significantly (copy editor ≠ research agent ≠ code reviewer)
+- Token counting accuracy varies by model family (Qwen, Llama, Mistral have different tokenizers)
+- Risk of silently breaking context by removing important messages or tool chains
+- Natural model limits exist regardless of compaction strategy (8k-32k tokens)
+- Users understand their domain better than generic heuristics
+
+**estimate_tokens()**
+```python
+def estimate_tokens(
+    messages: list[dict[str, Any]],
+    model: str = "gpt-3.5-turbo"
+) -> int:
+    """
+    Estimate token count for message list.
+
+    Uses tiktoken if available (~90-95% accurate for GPT models,
+    ~70-85% accurate for other families), otherwise falls back to
+    character-based approximation (~75-85% accurate).
+
+    Always include 10-20% safety margin when checking limits.
+
+    Examples:
+        >>> messages = [
+        ...     {"role": "system", "content": "You are helpful"},
+        ...     {"role": "user", "content": "Hello!"}
+        ... ]
+        >>> tokens = estimate_tokens(messages)
+        >>> if tokens > 28000:  # 85% of 32k limit
+        ...     print("Need to truncate!")
+    """
+    try:
+        import tiktoken
+        encoding = tiktoken.encoding_for_model(model)
+        # Count tokens with message overhead
+        num_tokens = 0
+        for message in messages:
+            num_tokens += 4  # Message formatting overhead
+            # ... count content tokens
+        return num_tokens
+    except ImportError:
+        # Fallback: 1 token ≈ 4 characters
+        total_chars = sum(len(str(v)) for m in messages for v in m.values())
+        return total_chars // 4
+```
+
+**truncate_messages()**
+```python
+def truncate_messages(
+    messages: list[dict[str, Any]],
+    keep: int = 10,
+    preserve_system: bool = True
+) -> list[dict[str, Any]]:
+    """
+    Truncate message history, keeping recent messages.
+
+    Simple truncation that preserves system prompt and keeps
+    last N messages. Does NOT attempt to preserve tool chains
+    or identify important context.
+
+    Args:
+        messages: List of message dicts (OpenAI format)
+        keep: Number of recent messages to keep (default: 10)
+        preserve_system: Keep system message if present (default: True)
+
+    Returns:
+        Truncated message list (new list, original unchanged)
+
+    Examples:
+        >>> # Manual truncation at natural breakpoint
+        >>> if estimate_tokens(client.history) > 28000:
+        ...     client.message_history = truncate_messages(
+        ...         client.history, keep=10
+        ...     )
+
+        >>> # Clear history except system prompt
+        >>> client.message_history = truncate_messages(
+        ...     client.history, keep=0
+        ... )
+    """
+    if not messages or len(messages) <= keep:
+        return messages.copy()
+
+    has_system = (
+        preserve_system and
+        messages and
+        messages[0].get("role") == "system"
+    )
+
+    if has_system:
+        return [messages[0]] + messages[-keep:] if keep > 0 else [messages[0]]
+    else:
+        return messages[-keep:] if keep > 0 else []
+```
+
+**Recommended Usage Patterns**:
+
+1. **Stateless Agents** (Best for single-task agents):
+```python
+for task in tasks:
+    async with Client(options) as client:
+        await client.query(task)
+        # Client disposed, fresh context for next task
+```
+
+2. **Manual Truncation** (At natural breakpoints):
+```python
+from open_agent.context import truncate_messages
+
+async with Client(options) as client:
+    for task in tasks:
+        await client.query(task)
+        # Truncate after each major milestone
+        client.message_history = truncate_messages(client.history, keep=5)
+```
+
+3. **Token Budget Monitoring**:
+```python
+from open_agent.context import estimate_tokens, truncate_messages
+
+MAX_TOKENS = 28000  # 85% of 32k limit
+
+async with Client(options) as client:
+    while True:
+        await client.query(user_input)
+        if estimate_tokens(client.history) > MAX_TOKENS:
+            client.message_history = truncate_messages(client.history, keep=10)
+```
+
+4. **External Memory (RAG-lite)**:
+```python
+# Store important facts externally, keep conversation context small
+knowledge_base = {}
+async with Client(options) as client:
+    # Research phase
+    await client.query("Research topic X")
+    knowledge_base["topic_x"] = extract_facts(response)
+
+    # Clear history
+    client.message_history = truncate_messages(client.history, keep=0)
+
+    # Analysis phase with stored knowledge
+    await client.query(f"Based on: {knowledge_base}, analyze Y")
+```
+
+**Optional Dependency**:
+```bash
+# Better token estimation with tiktoken
+pip install open-agent-sdk[context]
+
+# Without tiktoken, uses character-based fallback
+pip install open-agent-sdk
+```
+
+**Testing**:
+- 17 comprehensive tests in `tests/test_context.py`
+- Tests for tiktoken and fallback modes
+- Edge cases (keep=0, empty messages, preserve_system=False)
+- Integration tests with realistic conversation workflows
+
+**Documentation**:
+- `examples/context_management.py` - 4 detailed usage patterns
+- `docs/context-utilities-design.md` - Full design rationale
+
 ## Design Decisions
 
 ### 1. Streaming by Default
@@ -605,7 +776,58 @@ class MyAgent:
 - Simple schema for developers who don't need custom
 - But NOT in core - keeps main package minimal
 
-### 8. Tool-Calling Streaming Semantics
+### 8. Manual Context Management, Not Automatic (v0.2.3+)
+
+**Decision**: Provide opt-in utilities (`estimate_tokens`, `truncate_messages`), NOT automatic compaction
+
+**Rationale**:
+- **Domain-specific strategies**: Copy editing agents need different truncation than research agents
+  - Copy editor: Keep recent edits + system rules
+  - Research agent: External DB + summarized facts
+  - Code reviewer: Preserve file context chains
+- **Token counting inaccuracy**: Each model family has different tokenizers
+  - GPT models: tiktoken ~90-95% accurate
+  - Llama/Qwen/Mistral: ~70-85% accurate (different tokenizers)
+  - 10-20% safety margins required
+- **Context breaking risk**: Silently removing messages can:
+  - Break tool call/result pairs mid-conversation
+  - Remove critical information the model needs
+  - Cause confusion when context suddenly changes
+- **Natural limits exist**: Model context windows are fixed (8k-32k)
+  - Compaction doesn't bypass fundamental limits
+  - If you need massive context, use RAG/vector DB
+- **User knowledge**: Users understand their domain better than generic heuristics
+
+**What we provide instead**:
+```python
+from open_agent.context import estimate_tokens, truncate_messages
+
+# Manual monitoring
+tokens = estimate_tokens(client.history)
+if tokens > 28000:  # User decides threshold
+    # User decides strategy
+    client.message_history = truncate_messages(client.history, keep=10)
+```
+
+**Benefits of manual approach**:
+- No silent mutations (explicit is better than implicit)
+- Users stay in control
+- Domain-specific strategies easy to implement
+- Clear, tested primitives to build on
+- Migration path if auto-compaction is needed later
+
+**Alternative approaches documented**:
+1. Stateless agents - Fresh context per task
+2. Manual truncation - At natural breakpoints
+3. Token monitoring - Periodic checks with budget
+4. External memory - RAG-lite pattern
+
+**Comparison to Claude SDK**:
+- Claude SDK: Automatic compaction via CLI + PreCompact hook
+- Our SDK: Manual utilities + 4 documented patterns
+- Trade-off: Less "magic" but more control and clarity
+
+### 9. Tool-Calling Streaming Semantics
 
 OpenAI-style streaming delivers tool calls incrementally. Arguments are streamed as partial JSON strings over multiple chunks, and metadata like `id` and `function.name` can appear in separate chunks. To handle this robustly:
 
@@ -669,21 +891,27 @@ OpenAI-style streaming delivers tool calls incrementally. Arguments are streamed
 
 ## Implementation Complexity
 
-**Total LOC**: ~900 lines (v0.2.2)
+**Total LOC**: ~1070 lines (v0.2.3)
 
 **Breakdown**:
 - types.py: ~100 lines (dataclasses + Tool types)
 - tools.py: ~270 lines (decorator, schema conversion)
 - utils.py: ~220 lines (client, formatting, aggregation)
 - client.py: ~265 lines (query + Client class)
+- context.py: ~170 lines (token estimation, truncation) **[v0.2.3]**
 - __init__.py: ~15 lines (exports)
-- Tests: ~1100 lines (comprehensive coverage)
+- Tests: ~1330 lines (comprehensive coverage)
 
-**v0.2.2 additions**:
+**v0.2.2 additions** (Tool System):
 - tools.py: 270 lines
 - tests/test_tools.py: 267 lines
 - examples/calculator_tools.py: 129 lines
 - examples/simple_tool.py: 81 lines
+
+**v0.2.3 additions** (Context Utilities):
+- context.py: 170 lines
+- tests/test_context.py: 230 lines
+- examples/context_management.py: 240 lines
 
 ## Error Handling
 
@@ -701,24 +929,28 @@ OpenAI-style streaming delivers tool calls incrementally. Arguments are streamed
 
 ## Future Enhancements
 
-**Completed (v0.2.2)**:
+**Completed (v0.2.2)** - Tool System:
 - ✅ Tool system with `@tool` decorator
 - ✅ Automatic Python type → JSON Schema conversion
 - ✅ Sync handler support
 - ✅ Optional parameter handling
 - ✅ Tool result injection
 
-**Planned (Phase 2+)**:
+**Completed (v0.2.3)** - Context Utilities:
+- ✅ Token counting/estimation (tiktoken + fallback)
+- ✅ Manual history truncation utilities
+- ✅ Context management documentation (4 patterns)
+- ⏸️ **Intentionally NOT building**: Automatic compaction (see design decision #8)
+
+**Planned (Phase 3+)**:
 - ⏳ Optional automatic tool execution
 - ⏳ Tool execution hooks (PreToolUse, PostToolUse)
 - ⏳ Permission system (allowedTools, disallowedTools)
-- ⏳ Context window management
-- ⏳ Message history trimming/compaction
 - ⏳ Session persistence (SQLite)
 - ⏳ Retry logic with exponential backoff
-- ⏳ Token counting/usage tracking
 - ⏳ ThinkingBlock support for chain-of-thought
 - ⏳ Optional MCP bridge for external tool servers
+- ⏳ Message type improvements (SystemMessage, UserMessage, etc.)
 
 ## Testing Strategy
 
@@ -748,14 +980,21 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+context = [
+    "tiktoken>=0.5.0",   # Better token estimation (v0.2.3+)
+]
 dev = [
     "pytest>=7.0.0",
     "pytest-asyncio>=0.21.0",
+    "tiktoken>=0.5.0",   # For testing context utilities
 ]
 ```
 
-Optional:
-- pydantic for stricter types (can use dataclasses instead)
+**Optional dependencies**:
+- `tiktoken` - Better token estimation for context management (~90-95% accurate for GPT models, ~70-85% for others)
+  - Without: Falls back to character-based estimation (~75-85% accurate)
+  - Install: `pip install open-agent-sdk[context]`
+- `pydantic` - Stricter types (can use dataclasses instead)
 
 ## Success Metrics
 
@@ -779,8 +1018,18 @@ The technical design succeeds when:
 7. ✅ 16 comprehensive tool tests
 8. ✅ Production-ready quality
 
+**Phase 3 - Context Utilities (v0.2.3):**
+1. ✅ `estimate_tokens()` with tiktoken + fallback
+2. ✅ `truncate_messages()` simple truncation
+3. ✅ Optional `[context]` dependency for better accuracy
+4. ✅ 17 comprehensive context tests (102 total)
+5. ✅ 4 documented usage patterns in examples
+6. ✅ Design rationale documented (manual > automatic)
+7. ✅ Lean implementation (170 LOC)
+8. ✅ No silent mutations (explicit control)
+
 **Future Phases:**
-- ⏳ Context management with auto-compaction
 - ⏳ Permission system for tool control
-- ⏳ Hook system for lifecycle events
+- ⏳ Hook system for lifecycle events (PreToolUse, PostToolUse)
 - ⏳ ThinkingBlock for chain-of-thought
+- ⏳ Message type improvements (SystemMessage, UserMessage)
