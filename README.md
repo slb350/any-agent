@@ -396,14 +396,15 @@ open-agent-sdk/
 │   ├── ollama_chat.py          # Multi-turn chat example
 │   ├── config_examples.py      # Configuration patterns
 │   ├── simple_with_env.py      # Environment variable config
-│   ├── env_config_complete.py  # Strict env config
-│   ├── test_lmstudio.py        # Provider test suite
-│   ├── test_llamacpp.py        # llama.cpp test suite
-│   ├── test_multiturn_network.py
-│   ├── test_network_lmstudio.py
-│   ├── test_ollama_kimi.py
-│   └── test_timeout.py
+│   └── env_config_complete.py  # Strict env config
 ├── tests/
+│   ├── integration/               # Provider integration tests
+│   │   ├── test_lmstudio.py      # LM Studio test suite
+│   │   ├── test_llamacpp.py      # llama.cpp test suite
+│   │   ├── test_multiturn_network.py
+│   │   ├── test_network_lmstudio.py
+│   │   ├── test_ollama_kimi.py
+│   │   └── test_timeout.py
 │   ├── test_agent_options.py
 │   ├── test_client.py
 │   ├── test_config.py
@@ -428,7 +429,8 @@ open-agent-sdk/
 - `config_examples.py` – Shows provider shortcuts and manual overrides side by side
 - `env_config_complete.py` – Strict environment-variable configuration
 
-### Provider Testing
+### Provider Integration Tests
+Located in `tests/integration/`:
 - `test_lmstudio.py` – Comprehensive LM Studio test suite
 - `test_llamacpp.py` – llama.cpp provider test suite
 - `test_ollama_kimi.py` – Quick validation for Ollama with kimi-k2 model
