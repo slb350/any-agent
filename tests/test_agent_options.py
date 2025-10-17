@@ -4,66 +4,47 @@ import pytest
 from any_agent.types import AgentOptions
 
 
-def test_agent_options_explicit_model():
-    """Test AgentOptions with explicit model"""
+def test_agent_options_minimal():
+    """Test AgentOptions with required parameters"""
     options = AgentOptions(
         system_prompt="Test",
-        model="qwen2.5-32b-instruct"
+        model="qwen2.5-32b-instruct",
+        base_url="http://localhost:1234/v1"
     )
     assert options.model == "qwen2.5-32b-instruct"
-    assert options.base_url == "http://localhost:1234/v1"  # Default
+    assert options.base_url == "http://localhost:1234/v1"
+    assert options.system_prompt == "Test"
 
 
-def test_agent_options_model_from_env(monkeypatch):
-    """Test AgentOptions resolves model from environment variable"""
-    monkeypatch.setenv("ANY_AGENT_MODEL", "llama3.1:70b")
-
+def test_agent_options_with_defaults():
+    """Test AgentOptions default values"""
     options = AgentOptions(
-        system_prompt="Test"
+        system_prompt="Test",
+        model="test-model",
+        base_url="http://localhost:1234/v1"
     )
-    assert options.model == "llama3.1:70b"
+    assert options.max_turns == 1
+    assert options.max_tokens == 4096
+    assert options.temperature == 0.7
+    assert options.api_key == "not-needed"
 
 
-def test_agent_options_no_model_raises_error():
-    """Test AgentOptions raises ValueError when model not provided"""
-    with pytest.raises(ValueError, match="Model must be specified"):
+def test_agent_options_missing_model():
+    """Test AgentOptions requires model parameter"""
+    with pytest.raises(TypeError):
         AgentOptions(
-            system_prompt="Test"
+            system_prompt="Test",
+            base_url="http://localhost:1234/v1"
         )
 
 
-def test_agent_options_explicit_model_overrides_env(monkeypatch):
-    """Test explicit model overrides environment variable"""
-    monkeypatch.setenv("ANY_AGENT_MODEL", "llama3.1:70b")
-
-    options = AgentOptions(
-        system_prompt="Test",
-        model="qwen2.5-32b-instruct"
-    )
-    assert options.model == "qwen2.5-32b-instruct"
-
-
-def test_agent_options_base_url_and_model_from_env(monkeypatch):
-    """Test both base_url and model from environment variables"""
-    monkeypatch.setenv("ANY_AGENT_BASE_URL", "https://server.com/v1")
-    monkeypatch.setenv("ANY_AGENT_MODEL", "qwen2.5-32b-instruct")
-
-    options = AgentOptions(
-        system_prompt="Test"
-    )
-    assert options.base_url == "https://server.com/v1"
-    assert options.model == "qwen2.5-32b-instruct"
-
-
-def test_agent_options_provider_and_explicit_model():
-    """Test provider shorthand with explicit model"""
-    options = AgentOptions(
-        system_prompt="Test",
-        model="llama3.1:70b",
-        provider="ollama"
-    )
-    assert options.base_url == "http://localhost:11434/v1"
-    assert options.model == "llama3.1:70b"
+def test_agent_options_missing_base_url():
+    """Test AgentOptions requires base_url parameter"""
+    with pytest.raises(TypeError):
+        AgentOptions(
+            system_prompt="Test",
+            model="test-model"
+        )
 
 
 def test_agent_options_full_explicit():
@@ -73,9 +54,24 @@ def test_agent_options_full_explicit():
         model="qwen2.5-32b-instruct",
         base_url="http://custom:8080/v1",
         max_turns=10,
-        temperature=0.5
+        temperature=0.5,
+        max_tokens=2048,
+        api_key="test-key"
     )
     assert options.model == "qwen2.5-32b-instruct"
     assert options.base_url == "http://custom:8080/v1"
     assert options.max_turns == 10
     assert options.temperature == 0.5
+    assert options.max_tokens == 2048
+    assert options.api_key == "test-key"
+
+
+def test_agent_options_max_tokens_none():
+    """Test max_tokens can be None"""
+    options = AgentOptions(
+        system_prompt="Test",
+        model="test-model",
+        base_url="http://localhost:1234/v1",
+        max_tokens=None
+    )
+    assert options.max_tokens is None

@@ -79,12 +79,13 @@ asyncio.run(main())
 
 ```python
 from any_agent import Client, AgentOptions, TextBlock, ToolUseBlock
+from any_agent.config import get_base_url
 
 async def main():
     options = AgentOptions(
         system_prompt="You are a helpful assistant",
-        model="llama3.1:70b",
-        base_url="http://localhost:11434/v1",
+        model="kimi-k2:1t-cloud",  # Use your available Ollama model
+        base_url=get_base_url(provider="ollama"),
         max_turns=10
     )
 
@@ -102,7 +103,7 @@ asyncio.run(main())
 
 ## Configuration
 
-Any-Agent SDK supports flexible configuration via environment variables, provider shortcuts, or explicit parameters:
+Any-Agent SDK uses config helpers to provide flexible configuration via environment variables, provider shortcuts, or explicit parameters:
 
 ### Environment Variables (Recommended)
 
@@ -112,37 +113,48 @@ export ANY_AGENT_MODEL="qwen/qwen3-30b-a3b-2507"
 ```
 
 ```python
-# No hardcoded configuration needed!
+from any_agent import AgentOptions
+from any_agent.config import get_model, get_base_url
+
+# Config helpers read from environment
 options = AgentOptions(
-    system_prompt="..."
+    system_prompt="...",
+    model=get_model(),      # Reads ANY_AGENT_MODEL
+    base_url=get_base_url() # Reads ANY_AGENT_BASE_URL
 )
 ```
 
-### Provider Shorthand
+### Provider Shortcuts
 
 ```python
+from any_agent.config import get_base_url
+
 # Use built-in defaults for common providers
 options = AgentOptions(
     system_prompt="...",
     model="llama3.1:70b",
-    provider="ollama"  # → http://localhost:11434/v1
+    base_url=get_base_url(provider="ollama")  # → http://localhost:11434/v1
 )
 ```
 
 **Available providers**: `lmstudio`, `ollama`, `llamacpp`, `vllm`
 
-### Configuration Priority
+### Fallback Values
 
-**Base URL:**
-1. Explicit `base_url` parameter (highest)
-2. `ANY_AGENT_BASE_URL` environment variable
-3. `provider` shorthand
-4. Default to LM Studio (`http://localhost:1234/v1`)
+```python
+# Provide fallbacks when env vars not set
+options = AgentOptions(
+    system_prompt="...",
+    model=get_model("qwen2.5-32b-instruct"),         # Fallback model
+    base_url=get_base_url(provider="lmstudio")       # Fallback URL
+)
+```
 
-**Model:**
-1. Explicit `model` parameter (highest)
-2. `ANY_AGENT_MODEL` environment variable
-3. Required - raises error if not provided
+**Configuration Priority:**
+- Explicit parameter (highest)
+- Environment variable
+- Fallback value passed to config helper
+- Provider default (for base_url only)
 
 **Benefits:**
 - Switch between dev/prod by changing environment variables
@@ -197,16 +209,15 @@ async for msg in result:
 ```python
 class AgentOptions:
     system_prompt: str                      # System prompt
-    model: str                              # Model name (e.g., "qwen2.5-32b-instruct")
-    base_url: str | None = None             # Optional: Endpoint URL
-    provider: str | None = None             # Optional: Provider shorthand
+    model: str                              # Model name (required)
+    base_url: str                           # OpenAI-compatible endpoint URL (required)
     max_turns: int = 1                      # Max conversation turns
     max_tokens: int | None = 4096           # Tokens to generate (None uses provider default)
     temperature: float = 0.7                # Sampling temperature
     api_key: str = "not-needed"             # Most local servers don't need this
 ```
 
-**Note**: `base_url` is optional and resolved automatically (see Configuration).
+**Note**: Use config helpers (`get_model()`, `get_base_url()`) for environment variable and provider support.
 
 ### query()
 
@@ -245,7 +256,9 @@ async with Client(options: AgentOptions) as client:
 - **Gemma 2 9B/27B** - High-quality output for quality-focused work
 
 **Cloud-proxied via local gateway** (Ollama cloud provider, custom gateway):
-- Models like `deepseek-v3.1:671b-cloud`, `kimi-k2:1t-cloud`, etc.
+- **kimi-k2:1t-cloud** - Tested and working via Ollama gateway
+- **deepseek-v3.1:671b-cloud** - High-quality reasoning model
+- **qwen3-coder:480b-cloud** - Code-focused models
 - Your `base_url` still points to localhost gateway (e.g., `http://localhost:11434/v1`)
 - Gateway handles authentication and routing to cloud provider
 - Useful when you need larger models than your hardware can run locally
@@ -275,15 +288,21 @@ any-agent/
 
 ## Development Status
 
-**Currently in active development** - Phase 1 (MVP)
+**Currently in active development** - Phase 2 (Multi-turn & Tool Monitoring)
 
 ### Roadmap
 
 - [x] Project planning and architecture
-- [ ] **Phase 1**: Core query() and Client class (Week 1)
-- [ ] **Phase 2**: Multi-turn support with tool monitoring (Week 2)
-- [ ] **Phase 3**: Port copy_editor agent as validation (Week 3)
+- [x] **Phase 1**: Core query() and Client class - **Tested with Ollama (kimi-k2:1t-cloud)**
+- [ ] **Phase 2**: Multi-turn support with tool monitoring (In Progress)
+- [ ] **Phase 3**: Port copy_editor agent as validation
 - [ ] **Phase 4**: Documentation and PyPI release
+
+### Tested Providers
+
+- ✅ **Ollama** - Validated with `kimi-k2:1t-cloud` (cloud-proxied model)
+- ⏳ **LM Studio** - Pending test
+- ⏳ **llama.cpp** - Pending test
 
 See [docs/implementation.md](docs/implementation.md) for detailed plan.
 

@@ -1,24 +1,34 @@
 """
-Complete configuration using environment variables only.
+Complete configuration using environment variables with config helpers.
 
-This example shows how to configure EVERYTHING via environment variables,
-making it easy to switch between development and production without
-changing any code.
+This example shows how to use config helpers to pull from environment variables,
+making it easy to switch between development and production.
 
 Usage:
     export ANY_AGENT_BASE_URL="https://lmstudio.localbrandonfamily.com/v1"
     export ANY_AGENT_MODEL="qwen/qwen3-30b-a3b-2507"
     python examples/env_config_complete.py
+
+Without env vars, get_model() returns None and raises a helpful error.
 """
 import asyncio
 from any_agent import query, AgentOptions, TextBlock
+from any_agent.config import get_base_url, get_model
 
 
 async def main():
-    # No hardcoded configuration - everything from environment!
+    # Use config helpers - they check env vars and provide defaults
+    model = get_model()  # Checks ANY_AGENT_MODEL env var
+    if not model:
+        raise ValueError(
+            "Model not configured. Set ANY_AGENT_MODEL environment variable "
+            "or pass model explicitly"
+        )
+
     options = AgentOptions(
         system_prompt="You are a helpful assistant. Be concise.",
-        # model and base_url are automatically resolved from env vars
+        model=model,
+        base_url=get_base_url()  # Checks ANY_AGENT_BASE_URL env var, defaults to LM Studio
     )
 
     print(f"Server: {options.base_url}")

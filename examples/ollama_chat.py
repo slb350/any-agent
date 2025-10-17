@@ -1,13 +1,20 @@
-"""Multi-turn chat example with Ollama"""
+"""Multi-turn chat example with Ollama
+
+Prerequisites:
+    - Ollama running on localhost:11434
+    - Model available (e.g., kimi-k2:1t-cloud, deepseek-v3.1:671b-cloud)
+    - Check available models: ollama list
+"""
 import asyncio
 from any_agent import Client, AgentOptions, TextBlock, ToolUseBlock, ToolUseError
+from any_agent.config import get_base_url
 
 
 async def main():
     options = AgentOptions(
         system_prompt="You are a helpful assistant.",
-        model="llama3.1:70b",
-        base_url="http://localhost:11434/v1",
+        model="kimi-k2:1t-cloud",  # Change to your available model
+        base_url=get_base_url(provider="ollama"),
         max_turns=5,
         temperature=0.7
     )
