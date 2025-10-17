@@ -1,12 +1,12 @@
-# Technical Design: Any-Agent SDK
+# Technical Design: Open Agent SDK
 
 ## Overview
 
-Any-Agent SDK provides a claude-agent-sdk-compatible API for local/self-hosted LLMs via OpenAI-compatible endpoints.
+Open Agent SDK provides a clean, streaming API for local/self-hosted LLMs via OpenAI-compatible endpoints.
 
 **Core Goal**: Minimal wrapper around AsyncOpenAI that provides familiar patterns from claude-agent-sdk.
 
-Note: While the SDK targets local/self-hosted endpoints, it also works with local OpenAI-compatible gateways (e.g., Ollama) that proxy requests to cloud models. In that setup, Any-Agent still points to the local gateway `base_url`; credentials and routing are handled by the gateway.
+Note: While the SDK targets local/self-hosted endpoints, it also works with local OpenAI-compatible gateways (e.g., Ollama) that proxy requests to cloud models. In that setup, Open Agent SDK still points to the local gateway `base_url`; credentials and routing are handled by the gateway.
 
 ## Architecture
 
@@ -400,7 +400,7 @@ class MyAgent:
 ```
 
 **Future possibility**: Optional `any_agent.extras.storage` for basic conversation storage:
-- Install separately: `pip install any-agent[storage]`
+- Install separately: `pip install open-agent-sdk[storage]`
 - Simple schema for developers who don't need custom
 - But NOT in core - keeps main package minimal
 

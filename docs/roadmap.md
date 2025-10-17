@@ -1,6 +1,6 @@
-# Any-Agent SDK Roadmap
+# Open Agent SDK Roadmap
 
-## Current Status (v0.1.0-dev)
+## Current Status (v0.1.0 - Released)
 
 The SDK core is functionally complete with:
 - ✅ Streaming query() and multi-turn Client
@@ -11,28 +11,28 @@ The SDK core is functionally complete with:
 - ✅ URL validation and configurable timeouts
 - ✅ Tested with Ollama (kimi-k2:1t-cloud), LM Studio, and llama.cpp servers
 
-## Near Term (v0.1.0 Release)
+## v0.1.0 Release (Published to PyPI)
 
-### ✅ Completed
+### ✅ Completed Features
 - Tool use loop example (`examples/tool_use_agent.py`) demonstrating `add_tool_result()`
 - Provider validation for LM Studio, Ollama, and llama.cpp documented in `docs/provider-compatibility.md`
-- PyPI readiness groundwork: license, CHANGELOG, README refresh, `pyproject.toml` metadata/classifiers
+- PyPI readiness: license, CHANGELOG, README refresh, `pyproject.toml` metadata/classifiers
 - Practical showcase agents added (`examples/git_commit_agent.py`, `examples/log_analyzer_agent.py`) and featured in the README
+- Published to PyPI as `open-agent-sdk`
+- GitHub repository public at https://github.com/slb350/open-agent-sdk
 
-### ▶ Remaining Before Release
+## Near Term (v0.1.1+)
 
-1. **Release Logistics (Priority: High)**
-   - [ ] Register `any-agent` on PyPI and perform publish dry run
-   - [ ] Add GitHub workflow for packaging/release (optional but recommended)
+### Future Documentation Improvements
+- [ ] Generate API reference from docstrings (`docs/api-reference.md`)
+- [ ] Write migration guide from claude-agent-sdk (`docs/migration-guide.md`)
+- [ ] Add troubleshooting guide (`docs/troubleshooting.md`)
+- [ ] Add GitHub workflow for automated releases
 
-2. **Documentation Polish (Priority: Medium)**
-   - [ ] Generate API reference from docstrings (`docs/api-reference.md`)
-   - [ ] Write migration guide from claude-agent-sdk (`docs/migration-guide.md`)
-   - [ ] Add troubleshooting guide (`docs/troubleshooting.md`)
-   - [ ] Expand architecture notes for updated streaming pipeline
-
-3. **Provider Coverage (Priority: Medium)**
-   - [ ] Test and document vLLM or note limitations if unavailable
+### Provider Coverage
+- [ ] Test and document vLLM
+- [ ] Test Text Generation WebUI
+- [ ] Create provider compatibility matrix
 
 ## Medium Term (v0.2.0)
 

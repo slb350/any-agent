@@ -437,16 +437,17 @@ open-agent-sdk/
 
 ## Development Status
 
-**Currently in active development** – multi-turn support, tool monitoring, and tool-result helpers are implemented; we’re polishing examples and broadening provider coverage.
+**Released v0.1.0** – Core functionality is complete and available on PyPI. Multi-turn conversations, tool monitoring, and streaming are fully implemented.
 
 ### Roadmap
 
 - [x] Project planning and architecture
-- [x] Core `query()` and `Client` class (tested with Ollama `kimi-k2:1t-cloud`)
+- [x] Core `query()` and `Client` class
 - [x] Tool monitoring + `Client.add_tool_result()` helper
 - [x] Tool use example (`examples/tool_use_agent.py`)
-- [ ] Provider compatibility matrix
-- [ ] PyPI release tooling
+- [x] PyPI release - Published as `open-agent-sdk`
+- [ ] Provider compatibility matrix expansion
+- [ ] Additional agent examples
 
 ### Tested Providers
 

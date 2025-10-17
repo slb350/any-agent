@@ -15,7 +15,7 @@ async def main():
         max_tokens=200
     )
 
-    print("Testing Any-Agent SDK with network LM Studio...")
+    print("Testing Open Agent SDK with network LM Studio...")
     print(f"Server: {options.base_url}")
     print(f"Model: {options.model}")
     print("\nQuestion: What is the capital of France?")

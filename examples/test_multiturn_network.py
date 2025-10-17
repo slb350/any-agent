@@ -15,7 +15,7 @@ async def main():
         max_tokens=100
     )
 
-    print("Testing Multi-Turn Conversation with Any-Agent SDK")
+    print("Testing Multi-Turn Conversation with Open Agent SDK")
     print(f"Server: {options.base_url}")
     print(f"Model: {options.model}\n")
 

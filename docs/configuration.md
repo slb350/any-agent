@@ -1,6 +1,6 @@
 # Configuration Guide
 
-Any-Agent SDK uses config helpers (`get_model()` and `get_base_url()`) to provide flexible configuration, making it easy to switch between development and production without changing code.
+Open Agent SDK uses config helpers (`get_model()` and `get_base_url()`) to provide flexible configuration, making it easy to switch between development and production without changing code.
 
 ## Philosophy
 
@@ -125,7 +125,7 @@ To ignore the environment variable for a particular lookup, call `get_model("...
 Install YAML support:
 
 ```bash
-pip install any-agent[yaml]
+pip install open-agent-sdk[yaml]
 ```
 
 Create a config file:

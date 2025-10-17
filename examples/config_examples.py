@@ -1,5 +1,5 @@
 """
-Examples of different configuration methods for Any-Agent SDK.
+Examples of different configuration methods for Open Agent SDK.
 
 The SDK uses config helpers to resolve model and base_url:
 1. Explicit parameters (highest priority)
