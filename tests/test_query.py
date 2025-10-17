@@ -93,31 +93,55 @@ async def test_query_streams_text_and_tool(monkeypatch):
     )
 
     result = query(prompt="Hello?", options=options)
-    collected = []
+    texts = []
+    tool_blocks = []
 
     async for message in result:
         assert isinstance(message, AssistantMessage)
-        collected.append(message)
+        assert len(message.content) == 1  # Each yield should only contain the delta
+        block = message.content[0]
+        if isinstance(block, TextBlock):
+            texts.append(block.text)
+        elif isinstance(block, ToolUseBlock):
+            tool_blocks.append(block)
 
-    # Expect two yields for text streaming and a third after finalize
-    assert len(collected) == 3
-    final_message = collected[-1]
-    text_payload = "".join(
-        block.text for block in final_message.content if isinstance(block, TextBlock)
-    )
-    assert text_payload == "Hello world!"
-
-    tool_blocks = [
-        block
-        for block in final_message.content
-        if isinstance(block, ToolUseBlock)
-    ]
+    # Expect two text deltas and one tool block
+    assert texts == ["Hello ", "world!"]
     assert len(tool_blocks) == 1
     assert tool_blocks[0].id == "call_1"
     assert tool_blocks[0].name == "search"
     assert tool_blocks[0].input == {"query": "news"}
 
     # Ensure the client was closed after streaming
+    assert mock_client.closed
+
+
+@pytest.mark.asyncio
+async def test_query_handles_accumulative_streams(monkeypatch):
+    """Providers that resend the full text should only emit new deltas."""
+    chunks = [
+        _make_text_chunk("Hello"),
+        _make_text_chunk("Hello world"),
+    ]
+
+    mock_client = MockOpenAIClient(chunks)
+    monkeypatch.setattr("any_agent.client.create_client", lambda _options: mock_client)
+
+    options = AgentOptions(
+        system_prompt="System",
+        model="test-model",
+        base_url="http://localhost:1234/v1"
+    )
+
+    result = query(prompt="Hi?", options=options)
+    collected = []
+
+    async for message in result:
+        collected.extend(
+            block.text for block in message.content if isinstance(block, TextBlock)
+        )
+
+    assert collected == ["Hello", " world"]
     assert mock_client.closed
 
 @pytest.mark.asyncio

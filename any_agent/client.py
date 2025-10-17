@@ -30,7 +30,6 @@ async def query(
     client = create_client(options)
     messages = format_messages(options.system_prompt, prompt)
     aggregator = ToolCallAggregator()
-    current_message = AssistantMessage(content=[])
 
     try:
         response = await client.chat.completions.create(
@@ -46,14 +45,13 @@ async def query(
                 # Process text blocks immediately
                 text_block = aggregator.process_chunk(chunk)
                 if text_block:
-                    current_message.content.append(text_block)
-                    yield current_message
+                    yield AssistantMessage(content=[text_block])
         finally:
             # Finalize any pending tool calls
             tool_blocks = aggregator.finalize_tools()
             if tool_blocks:
-                current_message.content.extend(tool_blocks)
-                yield current_message
+                for block in tool_blocks:
+                    yield AssistantMessage(content=[block])
 
     except Exception as e:
         logger.error(f"Query failed: {e}")

@@ -4,10 +4,12 @@ from any_agent import Client, AgentOptions, TextBlock, ToolUseBlock, ToolUseErro
 
 
 async def main():
+    # Example: Testing multi-turn conversation on network server
+    # Replace with your actual server URL
     options = AgentOptions(
         system_prompt="You are a helpful assistant. Be concise.",
         model="qwen/qwen3-30b-a3b-2507",
-        base_url="https://lmstudio.localbrandonfamily.com/v1",
+        base_url="http://192.168.1.100:1234/v1",  # Example network server
         max_turns=5,
         temperature=0.7,
         max_tokens=100

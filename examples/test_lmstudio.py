@@ -17,7 +17,9 @@ from any_agent.config import get_model, get_base_url
 
 
 # LM Studio configuration
-LMSTUDIO_URL = "https://lmstudio.localbrandonfamily.com/v1"
+# Replace with your actual LM Studio server URL
+LMSTUDIO_URL = "http://localhost:1234/v1"  # Default local LM Studio
+# LMSTUDIO_URL = "http://192.168.1.100:1234/v1"  # Example: Network server
 LMSTUDIO_MODEL = "qwen/qwen3-30b-a3b-2507"
 
 

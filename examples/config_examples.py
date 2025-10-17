@@ -22,7 +22,7 @@ async def example_explicit():
     options = AgentOptions(
         system_prompt="You are a helpful assistant.",
         model="qwen/qwen3-30b-a3b-2507",
-        base_url="https://lmstudio.localbrandonfamily.com/v1",
+        base_url="http://192.168.1.100:1234/v1",  # Example: LM Studio on local network
         max_tokens=50
     )
 
@@ -36,7 +36,7 @@ async def example_env_vars():
 
     # Set environment variables
     os.environ["ANY_AGENT_MODEL"] = "qwen/qwen3-30b-a3b-2507"
-    os.environ["ANY_AGENT_BASE_URL"] = "https://lmstudio.localbrandonfamily.com/v1"
+    os.environ["ANY_AGENT_BASE_URL"] = "http://192.168.1.100:1234/v1"  # Example network server
 
     # Config helpers read from environment
     options = AgentOptions(

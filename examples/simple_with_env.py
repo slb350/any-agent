@@ -2,7 +2,7 @@
 Simple example using config helpers for environment variable support.
 
 To use your network LM Studio server:
-    export ANY_AGENT_BASE_URL="https://lmstudio.localbrandonfamily.com/v1"
+    export ANY_AGENT_BASE_URL="http://192.168.1.100:1234/v1"
     export ANY_AGENT_MODEL="qwen/qwen3-30b-a3b-2507"
     python examples/simple_with_env.py
 

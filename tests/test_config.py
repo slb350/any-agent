@@ -114,27 +114,29 @@ def test_provider_defaults_format():
 # Model configuration tests
 
 
-def test_get_model_explicit():
-    """Test explicit model has highest priority"""
+def test_get_model_returns_fallback_when_env_missing(monkeypatch):
+    """Fallback parameter should be used when env var is absent."""
+    monkeypatch.delenv("ANY_AGENT_MODEL", raising=False)
     model = get_model(model="qwen2.5-32b-instruct")
     assert model == "qwen2.5-32b-instruct"
 
 
-def test_get_model_env_var(monkeypatch):
-    """Test environment variable is used when no explicit model"""
+def test_get_model_env_var_overrides_fallback(monkeypatch):
+    """Environment variable should override provided fallback by default."""
     monkeypatch.setenv("ANY_AGENT_MODEL", "llama3.1:70b")
-    model = get_model()
+    model = get_model(model="qwen2.5-32b-instruct")
     assert model == "llama3.1:70b"
 
 
-def test_get_model_explicit_overrides_env(monkeypatch):
-    """Test explicit model overrides environment variable"""
+def test_get_model_can_ignore_env(monkeypatch):
+    """prefer_env=False should force the fallback model."""
     monkeypatch.setenv("ANY_AGENT_MODEL", "llama3.1:70b")
-    model = get_model(model="qwen2.5-32b-instruct")
+    model = get_model(model="qwen2.5-32b-instruct", prefer_env=False)
     assert model == "qwen2.5-32b-instruct"
 
 
-def test_get_model_none_when_not_set():
-    """Test returns None when no model specified"""
+def test_get_model_none_when_not_set(monkeypatch):
+    """Test returns None when nothing specified."""
+    monkeypatch.delenv("ANY_AGENT_MODEL", raising=False)
     model = get_model()
     assert model is None

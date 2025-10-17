@@ -44,6 +44,7 @@ class ToolCallAggregator:
 
     def __init__(self):
         self.pending_tools: dict[int, dict[str, Any]] = {}
+        self._text_accumulator: str = ""
 
     def process_chunk(self, chunk) -> TextBlock | None:
         """
@@ -58,8 +59,9 @@ class ToolCallAggregator:
             delta = chunk.choices[0].delta
 
             # Handle text content
-            if hasattr(delta, 'content') and delta.content:
-                return TextBlock(text=delta.content)
+            new_text = self._extract_new_text(delta)
+            if new_text:
+                return TextBlock(text=new_text)
 
             # Handle tool call deltas
             if hasattr(delta, 'tool_calls') and delta.tool_calls:
@@ -134,5 +136,50 @@ class ToolCallAggregator:
 
         # Clear state for next turn
         self.pending_tools.clear()
+        self._text_accumulator = ""
 
         return results
+
+    def _extract_new_text(self, delta) -> str | None:
+        """Return only the new text emitted in this chunk."""
+        content = getattr(delta, "content", None)
+        if not content:
+            return None
+
+        text = self._normalise_content(content)
+        if text is None:
+            return None
+
+        if self._text_accumulator and text.startswith(self._text_accumulator):
+            # Provider is sending cumulative text, emit only the delta
+            new_text = text[len(self._text_accumulator):]
+            self._text_accumulator = text
+            return new_text or None
+
+        # Treat as incremental streaming: emit the chunk and accumulate
+        new_text = text
+        self._text_accumulator += new_text
+        return new_text or None
+
+    @staticmethod
+    def _normalise_content(content) -> str | None:
+        """Convert various delta.content formats into a plain string."""
+        if isinstance(content, str):
+            return content
+
+        if isinstance(content, list):
+            parts: list[str] = []
+            for item in content:
+                if isinstance(item, str):
+                    parts.append(item)
+                elif isinstance(item, dict):
+                    text = item.get("text")
+                    if text:
+                        parts.append(text)
+                else:
+                    text = getattr(item, "text", None)
+                    if text:
+                        parts.append(text)
+            return "".join(parts) if parts else None
+
+        return None

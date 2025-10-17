@@ -60,15 +60,16 @@ def get_base_url(
     return PROVIDER_DEFAULTS["lmstudio"]
 
 
-def get_model(model: Optional[str] = None) -> Optional[str]:
+def get_model(model: Optional[str] = None, *, prefer_env: bool = True) -> Optional[str]:
     """
     Get model name from multiple sources with fallback chain:
-    1. Explicit model parameter
-    2. Environment variable ANY_AGENT_MODEL
+    1. Environment variable ANY_AGENT_MODEL (when prefer_env is True)
+    2. Explicit model parameter (acts as fallback by default)
     3. Return None (model must be specified somewhere)
 
     Args:
-        model: Explicit model name (highest priority)
+        model: Fallback model name used when environment variable is unset
+        prefer_env: When True (default), ANY_AGENT_MODEL overrides the provided model
 
     Returns:
         Model name string or None
@@ -86,16 +87,19 @@ def get_model(model: Optional[str] = None) -> Optional[str]:
         across all providers. Model must be specified explicitly,
         via environment variable, or in config file.
     """
-    # 1. Explicit parameter (highest priority)
+    # 1. Environment variable (default behaviour)
+    if prefer_env:
+        env_model = os.environ.get("ANY_AGENT_MODEL")
+        if env_model:
+            return env_model
+
+    # 2. Fallback parameter
     if model:
         return model
 
-    # 2. Environment variable
-    env_model = os.environ.get("ANY_AGENT_MODEL")
-    if env_model:
-        return env_model
-
     # 3. No default - model is agent/task specific
+    if prefer_env:
+        return os.environ.get("ANY_AGENT_MODEL")
     return None
 
 

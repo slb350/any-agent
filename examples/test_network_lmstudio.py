@@ -4,10 +4,12 @@ from any_agent import query, AgentOptions, TextBlock, ToolUseBlock, ToolUseError
 
 
 async def main():
+    # Example: Testing with LM Studio on a network server
+    # Replace with your actual server URL
     options = AgentOptions(
         system_prompt="You are a helpful assistant.",
         model="qwen/qwen3-30b-a3b-2507",
-        base_url="https://lmstudio.localbrandonfamily.com/v1",
+        base_url="http://192.168.1.100:1234/v1",  # Example network server
         max_turns=1,
         temperature=0.7,
         max_tokens=200

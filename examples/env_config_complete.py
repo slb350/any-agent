@@ -5,7 +5,7 @@ This example shows how to use config helpers to pull from environment variables,
 making it easy to switch between development and production.
 
 Usage:
-    export ANY_AGENT_BASE_URL="https://lmstudio.localbrandonfamily.com/v1"
+    export ANY_AGENT_BASE_URL="http://localhost:1234/v1"
     export ANY_AGENT_MODEL="qwen/qwen3-30b-a3b-2507"
     python examples/env_config_complete.py
 

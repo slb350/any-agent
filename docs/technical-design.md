@@ -125,13 +125,42 @@ def format_messages(
     return messages
 ```
 
-**parse_chunk()**
+**ToolCallAggregator.process_chunk()**
 ```python
-def parse_chunk(chunk) -> TextBlock | ToolUseBlock | None:
-    """Parse streaming chunk into message blocks"""
-    # Extract delta from chunk.choices[0].delta
-    # Convert to TextBlock or ToolUseBlock
-    # Return None if no content
+def process_chunk(self, chunk) -> TextBlock | None:
+    """Accumulate tool calls and emit only new text deltas."""
+    delta = chunk.choices[0].delta
+
+    new_text = self._extract_new_text(delta)  # Handles cumulative + incremental streams
+    if new_text:
+        return TextBlock(text=new_text)
+
+    # Accumulate tool fragments keyed by their index
+    for tool_delta in delta.tool_calls or []:
+        pending = self.pending_tools.setdefault(tool_delta.index, {...})
+        ...
+```
+
+**ToolCallAggregator.finalize_tools()**
+```python
+def finalize_tools(self) -> list[ToolUseBlock | ToolUseError]:
+    """Parse accumulated JSON arguments and clear state for the next turn."""
+    results = []
+    for tool in self.pending_tools.values():
+        if missing required fields:
+            results.append(ToolUseError(...))
+            continue
+
+        try:
+            payload = json.loads(tool["arguments_buffer"] or "{}")
+        except json.JSONDecodeError as exc:
+            results.append(ToolUseError(error=f"Invalid JSON: {exc}", ...))
+        else:
+            results.append(ToolUseBlock(..., input=payload))
+
+    self.pending_tools.clear()
+    self._text_accumulator = ""
+    return results
 ```
 
 ### 3. client.py - Main API
@@ -161,14 +190,15 @@ async def query(
         stream=True
     )
 
-    # Stream and parse chunks
-    current_message = AssistantMessage(content=[])
-
     async for chunk in response:
-        block = parse_chunk(chunk)
-        if block:
-            current_message.content.append(block)
-            yield current_message
+        text_block = aggregator.process_chunk(chunk)
+        if text_block:
+            # Emit a fresh AssistantMessage for each delta so consumers
+            # only see new content once.
+            yield AssistantMessage(content=[text_block])
+
+    for tool_block in aggregator.finalize_tools():
+        yield AssistantMessage(content=[tool_block])
 ```
 
 **Client - Multi-Turn Conversations**
@@ -216,9 +246,14 @@ class Client:
     async def receive_messages(self) -> AsyncGenerator[TextBlock | ToolUseBlock, None]:
         """Stream messages from the model"""
         async for chunk in self.response_stream:
-            block = parse_chunk(chunk)
-            if block:
-                yield block
+            text_block = self._aggregator.process_chunk(chunk)
+            if text_block:
+                assistant_blocks.append(text_block)
+                yield text_block
+
+        for tool_block in self._aggregator.finalize_tools():
+            assistant_blocks.append(tool_block)
+            yield tool_block
 
         self.turn_count += 1
 

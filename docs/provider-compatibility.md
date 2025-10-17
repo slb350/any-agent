@@ -7,7 +7,7 @@ This document tracks real-world testing results with different OpenAI-compatible
 ### ✅ Ollama (Fully Compatible)
 
 **Tested Version**: localhost:11434
-**Test Date**: 2025-10-16
+**Last Verified**: 2025-10-16 (macOS / Apple Silicon)
 **Models Tested**:
 - kimi-k2:1t-cloud (cloud-proxied)
 
@@ -27,8 +27,8 @@ This document tracks real-world testing results with different OpenAI-compatible
 
 ### ✅ LM Studio (Fully Compatible)
 
-**Tested Version**: Network server (https://lmstudio.localbrandonfamily.com/v1)
-**Test Date**: 2025-10-16
+**Tested Version**: Network server (e.g., http://192.168.1.100:1234/v1)
+**Last Verified**: 2025-10-16 (LAN-hosted server)
 **Models Tested**:
 - qwen/qwen3-30b-a3b-2507
 
@@ -54,7 +54,7 @@ from any_agent import AgentOptions
 options = AgentOptions(
     system_prompt="You are a helpful assistant",
     model="qwen/qwen3-30b-a3b-2507",
-    base_url="https://lmstudio.localbrandonfamily.com/v1"
+    base_url="http://192.168.1.100:1234/v1"  # Example network server
 )
 
 # Local LM Studio (default)
@@ -70,7 +70,7 @@ options = AgentOptions(
 ### ✅ llama.cpp (Fully Compatible)
 
 **Tested Version**: Build 6783 (ceff6bb2) with Metal support
-**Test Date**: 2025-10-16
+**Last Verified**: 2025-10-16 (local build with Metal)
 **Models Tested**:
 - TinyLlama 1.1B (Q4_K_M quantization)
 

@@ -35,7 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `_safe_eval()` in examples to replace unsafe `eval()`
 - URL validation prevents malformed endpoints
 
-## [0.1.0] - TBD
+## [0.1.0] - 2025-10-16
 
 Initial release - see Unreleased section above.
 

@@ -41,7 +41,7 @@ pip install any-agent  # Coming soon to PyPI
 For development:
 
 ```bash
-git clone https://github.com/yourusername/any-agent.git
+git clone https://github.com/slb350/any-agent.git
 cd any-agent
 pip install -e .
 ```
@@ -109,6 +109,101 @@ asyncio.run(main())
 
 See `examples/tool_use_agent.py` for progressively richer patterns (manual loop, helper function, and reusable agent class) demonstrating `add_tool_result()` in context.
 
+## 🚀 Practical Examples
+
+We've included two production-ready agents that demonstrate real-world usage:
+
+### 📝 Git Commit Agent
+**[examples/git_commit_agent.py](examples/git_commit_agent.py)**
+
+Analyzes your staged git changes and writes professional commit messages following conventional commit format.
+
+```bash
+# Stage your changes
+git add .
+
+# Run the agent
+python examples/git_commit_agent.py
+
+# Output:
+# ✓ Found staged changes in 3 file(s)
+# 🤖 Analyzing changes and generating commit message...
+#
+# 📝 Suggested commit message:
+# feat(auth): Add OAuth2 integration with refresh tokens
+#
+# - Implement token refresh mechanism
+# - Add secure cookie storage for tokens
+# - Update login flow to support OAuth2 providers
+# - Add tests for token expiration handling
+```
+
+**Features:**
+- Analyzes diff to determine commit type (feat/fix/docs/etc)
+- Writes clear, descriptive commit messages
+- Interactive mode: accept, edit, or regenerate
+- Follows conventional commit standards
+
+### 📊 Log Analyzer Agent
+**[examples/log_analyzer_agent.py](examples/log_analyzer_agent.py)**
+
+Intelligently analyzes application logs to identify patterns, errors, and provide actionable insights.
+
+```bash
+# Analyze a log file
+python examples/log_analyzer_agent.py /var/log/app.log
+
+# Analyze with a specific time window
+python examples/log_analyzer_agent.py app.log --since "2025-10-15T00:00:00" --until "2025-10-15T12:00:00"
+
+# Interactive mode for drilling down
+python examples/log_analyzer_agent.py app.log --interactive
+```
+
+**Features:**
+- Automatic error pattern detection
+- Time-based analysis (peak error times)
+- Root cause suggestions
+- Interactive mode for investigating specific issues
+- Supports multiple log formats (JSON, Apache, syslog, etc)
+- Time range filtering with `--since` / `--until`
+
+**Sample Output:**
+```
+📊 Log Summary:
+  Total entries: 45,231
+  Errors: 127 (0.3%)
+  Warnings: 892
+
+🔴 Top Error Patterns:
+  - Connection Error: 67 occurrences
+  - NullPointerException: 23 occurrences
+  - Timeout Error: 19 occurrences
+
+⏰ Peak error time: 2025-10-15T14:00:00
+   Errors in that hour: 43
+
+🤖 ANALYSIS REPORT:
+Main Issues (Priority Order):
+1. Database connection pool exhaustion during peak hours
+2. Unhandled null values in user authentication flow
+3. External API timeouts affecting payment processing
+
+Recommendations:
+1. Increase connection pool size from 10 to 25
+2. Add null checks in AuthService.validateUser() method
+3. Implement circuit breaker for payment API with 30s timeout
+```
+
+### Why These Examples?
+
+These agents demonstrate:
+- **Practical Value**: Solve real problems developers face daily
+- **Tool Integration**: Show how to integrate with system commands (git, file I/O)
+- **Multi-turn Conversations**: Interactive modes for complex analysis
+- **Structured Output**: Parse and format LLM responses for actionable results
+- **Privacy-First**: Keep your code and logs local while getting AI assistance
+
 ## Configuration
 
 Any-Agent SDK uses config helpers to provide flexible configuration via environment variables, provider shortcuts, or explicit parameters:
@@ -116,7 +211,7 @@ Any-Agent SDK uses config helpers to provide flexible configuration via environm
 ### Environment Variables (Recommended)
 
 ```bash
-export ANY_AGENT_BASE_URL="https://lmstudio.localbrandonfamily.com/v1"
+export ANY_AGENT_BASE_URL="http://localhost:1234/v1"
 export ANY_AGENT_MODEL="qwen/qwen3-30b-a3b-2507"
 ```
 
@@ -159,10 +254,11 @@ options = AgentOptions(
 ```
 
 **Configuration Priority:**
-- Explicit parameter (highest)
-- Environment variable
-- Fallback value passed to config helper
-- Provider default (for base_url only)
+- Environment variable (default behaviour)
+- Fallback value passed to the config helper
+- Provider default (for `base_url` only)
+
+Need to force a specific model even when `ANY_AGENT_MODEL` is set? Call `get_model("model-name", prefer_env=False)` to ignore the environment variable for that lookup.
 
 **Benefits:**
 - Switch between dev/prod by changing environment variables
@@ -288,18 +384,20 @@ any-agent/
 │   └── utils.py           # OpenAI client + ToolCallAggregator
 ├── docs/
 │   ├── configuration.md
-│   ├── implementation.md
 │   ├── provider-compatibility.md
 │   ├── roadmap.md
 │   └── technical-design.md
 ├── examples/
-│   ├── simple_lmstudio.py
-│   ├── simple_with_env.py
-│   ├── env_config_complete.py
-│   ├── config_examples.py
-│   ├── ollama_chat.py
-│   ├── tool_use_agent.py
-│   ├── test_lmstudio.py
+│   ├── git_commit_agent.py     # 🌟 Practical: Git commit message generator
+│   ├── log_analyzer_agent.py   # 🌟 Practical: Log file analyzer
+│   ├── tool_use_agent.py       # Complete tool use patterns
+│   ├── simple_lmstudio.py      # Basic usage with LM Studio
+│   ├── ollama_chat.py          # Multi-turn chat example
+│   ├── config_examples.py      # Configuration patterns
+│   ├── simple_with_env.py      # Environment variable config
+│   ├── env_config_complete.py  # Strict env config
+│   ├── test_lmstudio.py        # Provider test suite
+│   ├── test_llamacpp.py        # llama.cpp test suite
 │   ├── test_multiturn_network.py
 │   ├── test_network_lmstudio.py
 │   ├── test_ollama_kimi.py
@@ -311,24 +409,30 @@ any-agent/
 │   ├── test_query.py
 │   └── test_utils.py
 ├── CHANGELOG.md
-├── CLAUDE.md
 ├── pyproject.toml
 └── README.md
 ```
 
 ## Examples
 
-- `examples/simple_lmstudio.py` – Minimal streaming query against a local LM Studio server.
-- `examples/simple_with_env.py` – Same query pattern, but pulls model/URL via config helpers with fallbacks.
-- `examples/env_config_complete.py` – Strict environment-variable configuration; raises if settings are missing.
-- `examples/config_examples.py` – Shows the provider shortcuts and manual overrides side by side.
-- `examples/ollama_chat.py` – Multi-turn chat loop with Ollama, including tool-call logging.
-- `examples/tool_use_agent.py` – End-to-end tool flow: manual handling, helper function, and reusable agent class.
-- `examples/test_lmstudio.py` – Comprehensive LM Studio smoke test covering streaming, timeouts, and errors.
-- `examples/test_multiturn_network.py` – Network-only multi-turn regression test for remote endpoints.
-- `examples/test_network_lmstudio.py` – Connectivity/timeout checks for LM Studio over the network.
-- `examples/test_ollama_kimi.py` – Quick validation script for the `kimi-k2` model on Ollama.
-- `examples/test_timeout.py` – Ensures custom timeout settings behave as expected.
+### 🌟 Practical Agents (Production-Ready)
+- **`git_commit_agent.py`** – Analyzes git diffs and writes professional commit messages
+- **`log_analyzer_agent.py`** – Parses logs, finds patterns, suggests fixes with interactive mode
+- **`tool_use_agent.py`** – Complete tool use patterns: manual, helper, and agent class
+
+### Core SDK Usage
+- `simple_lmstudio.py` – Minimal streaming query against a local LM Studio server
+- `ollama_chat.py` – Multi-turn chat loop with Ollama, including tool-call logging
+- `simple_with_env.py` – Query pattern using config helpers with fallbacks
+- `config_examples.py` – Shows provider shortcuts and manual overrides side by side
+- `env_config_complete.py` – Strict environment-variable configuration
+
+### Provider Testing
+- `test_lmstudio.py` – Comprehensive LM Studio test suite
+- `test_llamacpp.py` – llama.cpp provider test suite
+- `test_ollama_kimi.py` – Quick validation for Ollama with kimi-k2 model
+- `test_multiturn_network.py` – Network multi-turn conversation tests
+- `test_timeout.py` – Timeout configuration verification
 
 ## Development Status
 
@@ -345,19 +449,18 @@ any-agent/
 
 ### Tested Providers
 
-- ✅ **Ollama** - Validated with `kimi-k2:1t-cloud` (cloud-proxied model)
-- ⏳ **LM Studio** - Pending test
-- ⏳ **llama.cpp** - Pending test
+- ✅ **Ollama** - Fully validated with `kimi-k2:1t-cloud` (cloud-proxied model)
+- ✅ **LM Studio** - Fully validated with `qwen/qwen3-30b` model
+- ✅ **llama.cpp** - Fully validated with TinyLlama 1.1B model
 
-See [docs/implementation.md](docs/implementation.md) for detailed plan.
+See [docs/provider-compatibility.md](docs/provider-compatibility.md) for detailed test results.
 
 ## Documentation
 
-- [CLAUDE.md](CLAUDE.md) - Project overview and context
 - [docs/technical-design.md](docs/technical-design.md) - Architecture details
-- [docs/implementation.md](docs/implementation.md) - Implementation plan
+- [docs/configuration.md](docs/configuration.md) - Configuration guide
 - [docs/roadmap.md](docs/roadmap.md) - Current milestones and future work
-- [docs/provider-compatibility.md](docs/provider-compatibility.md) - Provider notes (tracked as we validate)
+- [docs/provider-compatibility.md](docs/provider-compatibility.md) - Provider test results
 - [examples/](examples/) - Usage examples
 
 ## Testing

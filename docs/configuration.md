@@ -10,12 +10,13 @@ AgentOptions requires explicit `model` and `base_url` parameters. Use config hel
 
 ### get_model() Resolution
 
-Resolves `model` in this priority order:
+Resolves `model` in this priority order (default behaviour):
 
-1. **Explicit parameter** - `get_model(model="qwen2.5-32b")`
-2. **Environment variable** - `ANY_AGENT_MODEL`
-3. **Fallback parameter** - `get_model("default-model")`
-4. **Returns None** if not provided
+1. **Environment variable** - `ANY_AGENT_MODEL`
+2. **Fallback parameter** - `get_model("default-model")`
+3. **Returns None** if not provided
+
+Need to force a specific model even when the environment variable is set? Call `get_model("model-name", prefer_env=False)`.
 
 ### get_base_url() Resolution
 
@@ -36,7 +37,7 @@ from any_agent import AgentOptions
 options = AgentOptions(
     system_prompt="You are a helpful assistant.",
     model="qwen2.5-32b-instruct",
-    base_url="https://lmstudio.localbrandonfamily.com/v1"
+    base_url="http://192.168.1.100:1234/v1"  # Example network server
 )
 ```
 
@@ -46,7 +47,7 @@ Set environment variables once, use everywhere:
 
 ```bash
 # In your shell or .env file
-export ANY_AGENT_BASE_URL="https://lmstudio.localbrandonfamily.com/v1"
+export ANY_AGENT_BASE_URL="http://192.168.1.100:1234/v1"
 export ANY_AGENT_MODEL="qwen/qwen3-30b-a3b-2507"
 ```
 
@@ -117,6 +118,7 @@ options = AgentOptions(
 ```
 
 If `ANY_AGENT_MODEL` is set, it uses that; otherwise uses the fallback.
+To ignore the environment variable for a particular lookup, call `get_model("...", prefer_env=False)`.
 
 ## YAML Configuration (Optional)
 
@@ -130,7 +132,7 @@ Create a config file:
 
 ```yaml
 # any-agent.yaml or ~/.config/any-agent/config.yaml
-base_url: https://lmstudio.localbrandonfamily.com/v1
+base_url: http://localhost:1234/v1
 model: qwen2.5-32b-instruct
 temperature: 0.7
 max_tokens: 4096
@@ -266,7 +268,7 @@ def test_agent():
 
 ```bash
 # Set environment variables
-export ANY_AGENT_BASE_URL="https://lmstudio.localbrandonfamily.com/v1"
+export ANY_AGENT_BASE_URL="http://localhost:1234/v1"
 export ANY_AGENT_MODEL="qwen/qwen3-30b-a3b-2507"
 ```
 

@@ -92,6 +92,23 @@ def test_tool_aggregator_text_content():
     assert result.text == "Hello world"
 
 
+def test_tool_aggregator_accumulative_streaming():
+    """Providers that resend full text should only emit the delta."""
+    aggregator = ToolCallAggregator()
+
+    def chunk(text):
+        delta = SimpleNamespace(content=text, tool_calls=None)
+        return SimpleNamespace(choices=[SimpleNamespace(delta=delta)])
+
+    first = aggregator.process_chunk(chunk("Hello"))
+    second = aggregator.process_chunk(chunk("Hello world"))
+
+    assert isinstance(first, TextBlock)
+    assert first.text == "Hello"
+    assert isinstance(second, TextBlock)
+    assert second.text == " world"
+
+
 def test_tool_aggregator_process_tool_call_chunks():
     """Aggregator should combine streamed tool call fragments."""
     aggregator = ToolCallAggregator()
