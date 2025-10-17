@@ -189,8 +189,8 @@ async def test_config_helpers():
     print(f"Resolved base_url: {base_url}")
 
     # Test with environment variables
-    os.environ["ANY_AGENT_MODEL"] = LMSTUDIO_MODEL
-    os.environ["ANY_AGENT_BASE_URL"] = LMSTUDIO_URL
+    os.environ["OPEN_AGENT_MODEL"] = LMSTUDIO_MODEL
+    os.environ["OPEN_AGENT_BASE_URL"] = LMSTUDIO_URL
 
     options = AgentOptions(
         system_prompt="You are a helpful assistant.",
@@ -204,8 +204,8 @@ async def test_config_helpers():
     print(f"  Base URL: {options.base_url}")
 
     # Clean up
-    del os.environ["ANY_AGENT_MODEL"]
-    del os.environ["ANY_AGENT_BASE_URL"]
+    del os.environ["OPEN_AGENT_MODEL"]
+    del os.environ["OPEN_AGENT_BASE_URL"]
 
     print("\nTesting quick query...")
     print("Question: Say hello")

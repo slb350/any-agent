@@ -1,4 +1,4 @@
-"""Configuration management for any-agent"""
+"""Configuration helpers for Open Agent SDK"""
 import os
 from typing import Optional
 from pathlib import Path
@@ -19,7 +19,7 @@ def get_base_url(
     """
     Get base URL from multiple sources with fallback chain:
     1. Explicit base_url parameter
-    2. Environment variable ANY_AGENT_BASE_URL
+    2. Environment variable OPEN_AGENT_BASE_URL
     3. Provider default (if provider specified)
     4. Default to LM Studio localhost
 
@@ -34,7 +34,7 @@ def get_base_url(
         >>> get_base_url("http://custom:8080/v1")
         'http://custom:8080/v1'
 
-        >>> os.environ["ANY_AGENT_BASE_URL"] = "http://server:1234/v1"
+        >>> os.environ["OPEN_AGENT_BASE_URL"] = "http://server:1234/v1"
         >>> get_base_url()
         'http://server:1234/v1'
 
@@ -46,7 +46,7 @@ def get_base_url(
         return base_url
 
     # 2. Environment variable
-    env_url = os.environ.get("ANY_AGENT_BASE_URL")
+    env_url = os.environ.get("OPEN_AGENT_BASE_URL")
     if env_url:
         return env_url
 
@@ -63,13 +63,13 @@ def get_base_url(
 def get_model(model: Optional[str] = None, *, prefer_env: bool = True) -> Optional[str]:
     """
     Get model name from multiple sources with fallback chain:
-    1. Environment variable ANY_AGENT_MODEL (when prefer_env is True)
+    1. Environment variable OPEN_AGENT_MODEL (when prefer_env is True)
     2. Explicit model parameter (acts as fallback by default)
     3. Return None (model must be specified somewhere)
 
     Args:
         model: Fallback model name used when environment variable is unset
-        prefer_env: When True (default), ANY_AGENT_MODEL overrides the provided model
+        prefer_env: When True (default), OPEN_AGENT_MODEL overrides the provided model
 
     Returns:
         Model name string or None
@@ -78,7 +78,7 @@ def get_model(model: Optional[str] = None, *, prefer_env: bool = True) -> Option
         >>> get_model("qwen2.5-32b-instruct")
         'qwen2.5-32b-instruct'
 
-        >>> os.environ["ANY_AGENT_MODEL"] = "llama3.1:70b"
+        >>> os.environ["OPEN_AGENT_MODEL"] = "llama3.1:70b"
         >>> get_model()
         'llama3.1:70b'
 
@@ -89,7 +89,7 @@ def get_model(model: Optional[str] = None, *, prefer_env: bool = True) -> Option
     """
     # 1. Environment variable (default behaviour)
     if prefer_env:
-        env_model = os.environ.get("ANY_AGENT_MODEL")
+        env_model = os.environ.get("OPEN_AGENT_MODEL")
         if env_model:
             return env_model
 
@@ -99,7 +99,7 @@ def get_model(model: Optional[str] = None, *, prefer_env: bool = True) -> Option
 
     # 3. No default - model is agent/task specific
     if prefer_env:
-        return os.environ.get("ANY_AGENT_MODEL")
+        return os.environ.get("OPEN_AGENT_MODEL")
     return None
 
 
@@ -109,9 +109,9 @@ def load_config_file(config_path: Optional[Path] = None) -> dict:
 
     Args:
         config_path: Path to YAML config file. If None, checks:
-                    1. ./any-agent.yaml
-                    2. ~/.config/any-agent/config.yaml
-                    3. ~/.any-agent.yaml
+                    1. ./open-agent.yaml
+                    2. ~/.config/open-agent/config.yaml
+                    3. ~/.open-agent.yaml
 
     Returns:
         Configuration dictionary
@@ -135,9 +135,9 @@ def load_config_file(config_path: Optional[Path] = None) -> dict:
     else:
         # Default search locations
         search_paths.extend([
-            Path.cwd() / "any-agent.yaml",
-            Path.home() / ".config" / "any-agent" / "config.yaml",
-            Path.home() / ".any-agent.yaml",
+            Path.cwd() / "open-agent.yaml",
+            Path.home() / ".config" / "open-agent" / "config.yaml",
+            Path.home() / ".open-agent.yaml",
         ])
 
     for path in search_paths:

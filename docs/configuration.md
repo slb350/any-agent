@@ -12,7 +12,7 @@ AgentOptions requires explicit `model` and `base_url` parameters. Use config hel
 
 Resolves `model` in this priority order (default behaviour):
 
-1. **Environment variable** - `ANY_AGENT_MODEL`
+1. **Environment variable** - `OPEN_AGENT_MODEL`
 2. **Fallback parameter** - `get_model("default-model")`
 3. **Returns None** if not provided
 
@@ -23,7 +23,7 @@ Need to force a specific model even when the environment variable is set? Call `
 Resolves `base_url` in this priority order:
 
 1. **Explicit parameter** - `get_base_url(base_url="http://...")`
-2. **Environment variable** - `ANY_AGENT_BASE_URL`
+2. **Environment variable** - `OPEN_AGENT_BASE_URL`
 3. **Provider shorthand** - `get_base_url(provider="ollama")`
 4. **Default** - LM Studio on localhost
 
@@ -47,8 +47,8 @@ Set environment variables once, use everywhere:
 
 ```bash
 # In your shell or .env file
-export ANY_AGENT_BASE_URL="http://192.168.1.100:1234/v1"
-export ANY_AGENT_MODEL="qwen/qwen3-30b-a3b-2507"
+export OPEN_AGENT_BASE_URL="http://192.168.1.100:1234/v1"
+export OPEN_AGENT_MODEL="qwen/qwen3-30b-a3b-2507"
 ```
 
 Then in Python:
@@ -117,7 +117,7 @@ options = AgentOptions(
 )
 ```
 
-If `ANY_AGENT_MODEL` is set, it uses that; otherwise uses the fallback.
+If `OPEN_AGENT_MODEL` is set, it uses that; otherwise uses the fallback.
 To ignore the environment variable for a particular lookup, call `get_model("...", prefer_env=False)`.
 
 ## YAML Configuration (Optional)
@@ -131,7 +131,7 @@ pip install open-agent-sdk[yaml]
 Create a config file:
 
 ```yaml
-# any-agent.yaml or ~/.config/any-agent/config.yaml
+# open-agent.yaml or ~/.config/open-agent/config.yaml
 base_url: http://localhost:1234/v1
 model: qwen2.5-32b-instruct
 temperature: 0.7
@@ -161,7 +161,7 @@ import os
 from open_agent import AgentOptions
 from open_agent.config import get_base_url
 
-os.environ["ANY_AGENT_BASE_URL"] = "http://env-server:1234/v1"
+os.environ["OPEN_AGENT_BASE_URL"] = "http://env-server:1234/v1"
 
 options = AgentOptions(
     system_prompt="Test",
@@ -180,7 +180,7 @@ import os
 from open_agent import AgentOptions
 from open_agent.config import get_base_url
 
-os.environ["ANY_AGENT_BASE_URL"] = "http://env-server:1234/v1"
+os.environ["OPEN_AGENT_BASE_URL"] = "http://env-server:1234/v1"
 
 options = AgentOptions(
     system_prompt="Test",
@@ -231,8 +231,8 @@ Use environment variables with config helpers to avoid hardcoding:
 
 ```bash
 # In production environment
-export ANY_AGENT_BASE_URL="https://lmstudio.production-server.com/v1"
-export ANY_AGENT_MODEL="qwen/qwen3-30b-a3b-2507"
+export OPEN_AGENT_BASE_URL="https://lmstudio.production-server.com/v1"
+export OPEN_AGENT_MODEL="qwen/qwen3-30b-a3b-2507"
 ```
 
 ```python
@@ -268,8 +268,8 @@ def test_agent():
 
 ```bash
 # Set environment variables
-export ANY_AGENT_BASE_URL="http://localhost:1234/v1"
-export ANY_AGENT_MODEL="qwen/qwen3-30b-a3b-2507"
+export OPEN_AGENT_BASE_URL="http://localhost:1234/v1"
+export OPEN_AGENT_MODEL="qwen/qwen3-30b-a3b-2507"
 ```
 
 ```python
@@ -314,7 +314,7 @@ from open_agent import AgentOptions
 from open_agent.config import get_model, get_base_url
 
 # Env vars override fallbacks
-# export ANY_AGENT_BASE_URL="https://server.com/v1"
+# export OPEN_AGENT_BASE_URL="https://server.com/v1"
 
 options = AgentOptions(
     system_prompt="...",

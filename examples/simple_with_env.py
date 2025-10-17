@@ -2,8 +2,8 @@
 Simple example using config helpers for environment variable support.
 
 To use your network LM Studio server:
-    export ANY_AGENT_BASE_URL="http://192.168.1.100:1234/v1"
-    export ANY_AGENT_MODEL="qwen/qwen3-30b-a3b-2507"
+    export OPEN_AGENT_BASE_URL="http://192.168.1.100:1234/v1"
+    export OPEN_AGENT_MODEL="qwen/qwen3-30b-a3b-2507"
     python examples/simple_with_env.py
 
 Or use provider shorthand:
@@ -18,8 +18,8 @@ async def main():
     # Use config helpers to resolve from env vars with fallbacks
     options = AgentOptions(
         system_prompt="You are a helpful assistant. Be concise.",
-        model=get_model("qwen/qwen3-30b-a3b-2507"),  # Uses ANY_AGENT_MODEL env or fallback
-        base_url=get_base_url(provider="lmstudio"),  # Uses ANY_AGENT_BASE_URL env or provider default
+        model=get_model("qwen/qwen3-30b-a3b-2507"),  # Uses OPEN_AGENT_MODEL env or fallback
+        base_url=get_base_url(provider="lmstudio"),  # Uses OPEN_AGENT_BASE_URL env or provider default
         max_tokens=100
     )
 

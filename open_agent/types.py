@@ -1,4 +1,4 @@
-"""Type definitions for Any-Agent SDK"""
+"""Type definitions for Open Agent SDK"""
 from dataclasses import dataclass, field
 from typing import Literal
 
@@ -66,7 +66,7 @@ class AgentOptions:
 
         AgentOptions(
             system_prompt="...",
-            model=get_model("qwen2.5-32b"),  # Falls back to ANY_AGENT_MODEL env var
+            model=get_model("qwen2.5-32b"),  # Falls back to OPEN_AGENT_MODEL env var
             base_url=get_base_url(provider="ollama")  # Uses provider default
         )
     """

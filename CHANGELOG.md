@@ -5,26 +5,12 @@ All notable changes to Open Agent SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.2.0] - 2025-10-16
+## [0.2.1] - 2025-10-16
 
-### BREAKING CHANGES
-- Changed module name from `any_agent` to `open_agent`
-- All imports now use `from open_agent import ...` instead of `from any_agent import ...`
-
-### Changed
-- Renamed package module to match PyPI package name for consistency
-- Updated all examples and documentation to use new import path
-- Better alignment between package name (open-agent-sdk) and module name (open_agent)
-
-### Migration Guide
-If upgrading from v0.1.0:
-```python
-# Old (v0.1.0)
-from any_agent import query, AgentOptions
-
-# New (v0.2.0)
-from open_agent import query, AgentOptions
-```
+### Fixed
+- Corrected all remaining references to old `ANY_AGENT_*` environment variables
+- Updated to use `OPEN_AGENT_*` consistently throughout documentation and examples
+- Simplified CHANGELOG to properly reflect v0.1.0 as the initial release
 
 ## [0.1.0] - 2025-10-16
 
@@ -52,6 +38,8 @@ from open_agent import query, AgentOptions
 - README reshaped with real-world agent walkthroughs and configuration guidance
 - `get_model()` now prioritizes environment overrides while allowing explicit fallbacks
 - Updated documentation to reflect streaming semantics and provider verification
+- Renamed project to **Open Agent SDK**, including environment variables (`OPEN_AGENT_*`) and config file defaults
+- Module import path is now `open_agent` (replaces legacy `any_agent` name from pre-release builds)
 
 ### Fixed
 - Resource leaks from unclosed AsyncOpenAI clients
@@ -67,4 +55,6 @@ from open_agent import query, AgentOptions
 
 ## Version History
 
+- **0.2.1** - Environment variable consistency fix (2025-10-16)
+- **0.2.0** - Module rename to `open_agent` (2025-10-16)
 - **0.1.0** - Initial public release (2025-10-16)

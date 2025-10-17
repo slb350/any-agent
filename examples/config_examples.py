@@ -3,7 +3,7 @@ Examples of different configuration methods for Open Agent SDK.
 
 The SDK uses config helpers to resolve model and base_url:
 1. Explicit parameters (highest priority)
-2. Environment variables ANY_AGENT_MODEL and ANY_AGENT_BASE_URL
+2. Environment variables OPEN_AGENT_MODEL and OPEN_AGENT_BASE_URL
 3. Fallback values passed to config helpers
 4. Provider shortcuts via get_base_url(provider="...")
 
@@ -35,8 +35,8 @@ async def example_env_vars():
     print("\n=== Example 2: Environment Variables ===")
 
     # Set environment variables
-    os.environ["ANY_AGENT_MODEL"] = "qwen/qwen3-30b-a3b-2507"
-    os.environ["ANY_AGENT_BASE_URL"] = "http://192.168.1.100:1234/v1"  # Example network server
+    os.environ["OPEN_AGENT_MODEL"] = "qwen/qwen3-30b-a3b-2507"
+    os.environ["OPEN_AGENT_BASE_URL"] = "http://192.168.1.100:1234/v1"  # Example network server
 
     # Config helpers read from environment
     options = AgentOptions(
@@ -50,8 +50,8 @@ async def example_env_vars():
     print(f"Base URL: {options.base_url}")
 
     # Clean up
-    del os.environ["ANY_AGENT_MODEL"]
-    del os.environ["ANY_AGENT_BASE_URL"]
+    del os.environ["OPEN_AGENT_MODEL"]
+    del os.environ["OPEN_AGENT_BASE_URL"]
 
 
 async def example_provider_ollama():
@@ -89,8 +89,8 @@ async def example_fallbacks():
     print("\n=== Example 5: Fallback Values ===")
 
     # Ensure env vars are not set
-    os.environ.pop("ANY_AGENT_MODEL", None)
-    os.environ.pop("ANY_AGENT_BASE_URL", None)
+    os.environ.pop("OPEN_AGENT_MODEL", None)
+    os.environ.pop("OPEN_AGENT_BASE_URL", None)
 
     options = AgentOptions(
         system_prompt="You are a helpful assistant.",
@@ -108,8 +108,8 @@ async def example_priority():
     print("\n=== Example 6: Priority Order ===")
 
     # Set env vars
-    os.environ["ANY_AGENT_MODEL"] = "env-model"
-    os.environ["ANY_AGENT_BASE_URL"] = "http://env-server:1234/v1"
+    os.environ["OPEN_AGENT_MODEL"] = "env-model"
+    os.environ["OPEN_AGENT_BASE_URL"] = "http://env-server:1234/v1"
 
     # Explicit parameters override everything
     options1 = AgentOptions(
@@ -128,8 +128,8 @@ async def example_priority():
     print(f"Env + fallbacks → Model: {options2.model}, URL: {options2.base_url}")
 
     # Clean up
-    del os.environ["ANY_AGENT_MODEL"]
-    del os.environ["ANY_AGENT_BASE_URL"]
+    del os.environ["OPEN_AGENT_MODEL"]
+    del os.environ["OPEN_AGENT_BASE_URL"]
 
     # Fallbacks when no env vars
     options3 = AgentOptions(

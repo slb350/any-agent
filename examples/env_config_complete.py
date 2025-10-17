@@ -5,8 +5,8 @@ This example shows how to use config helpers to pull from environment variables,
 making it easy to switch between development and production.
 
 Usage:
-    export ANY_AGENT_BASE_URL="http://localhost:1234/v1"
-    export ANY_AGENT_MODEL="qwen/qwen3-30b-a3b-2507"
+    export OPEN_AGENT_BASE_URL="http://localhost:1234/v1"
+    export OPEN_AGENT_MODEL="qwen/qwen3-30b-a3b-2507"
     python examples/env_config_complete.py
 
 Without env vars, get_model() returns None and raises a helpful error.
@@ -18,17 +18,17 @@ from open_agent.config import get_base_url, get_model
 
 async def main():
     # Use config helpers - they check env vars and provide defaults
-    model = get_model()  # Checks ANY_AGENT_MODEL env var
+    model = get_model()  # Checks OPEN_AGENT_MODEL env var
     if not model:
         raise ValueError(
-            "Model not configured. Set ANY_AGENT_MODEL environment variable "
+            "Model not configured. Set OPEN_AGENT_MODEL environment variable "
             "or pass model explicitly"
         )
 
     options = AgentOptions(
         system_prompt="You are a helpful assistant. Be concise.",
         model=model,
-        base_url=get_base_url()  # Checks ANY_AGENT_BASE_URL env var, defaults to LM Studio
+        base_url=get_base_url()  # Checks OPEN_AGENT_BASE_URL env var, defaults to LM Studio
     )
 
     print(f"Server: {options.base_url}")
@@ -47,6 +47,6 @@ async def main():
 
 
 if __name__ == "__main__":
-    # This will fail with a clear error if ANY_AGENT_MODEL is not set
+    # This will fail with a clear error if OPEN_AGENT_MODEL is not set
     # Try running without the env var to see the error message
     asyncio.run(main())

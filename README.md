@@ -212,8 +212,8 @@ Open Agent SDK uses config helpers to provide flexible configuration via environ
 ### Environment Variables (Recommended)
 
 ```bash
-export ANY_AGENT_BASE_URL="http://localhost:1234/v1"
-export ANY_AGENT_MODEL="qwen/qwen3-30b-a3b-2507"
+export OPEN_AGENT_BASE_URL="http://localhost:1234/v1"
+export OPEN_AGENT_MODEL="qwen/qwen3-30b-a3b-2507"
 ```
 
 ```python
@@ -223,8 +223,8 @@ from open_agent.config import get_model, get_base_url
 # Config helpers read from environment
 options = AgentOptions(
     system_prompt="...",
-    model=get_model(),      # Reads ANY_AGENT_MODEL
-    base_url=get_base_url() # Reads ANY_AGENT_BASE_URL
+    model=get_model(),      # Reads OPEN_AGENT_MODEL
+    base_url=get_base_url() # Reads OPEN_AGENT_BASE_URL
 )
 ```
 
@@ -259,7 +259,7 @@ options = AgentOptions(
 - Fallback value passed to the config helper
 - Provider default (for `base_url` only)
 
-Need to force a specific model even when `ANY_AGENT_MODEL` is set? Call `get_model("model-name", prefer_env=False)` to ignore the environment variable for that lookup.
+Need to force a specific model even when `OPEN_AGENT_MODEL` is set? Call `get_model("model-name", prefer_env=False)` to ignore the environment variable for that lookup.
 
 **Benefits:**
 - Switch between dev/prod by changing environment variables
