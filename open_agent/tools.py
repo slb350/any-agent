@@ -5,8 +5,9 @@ Simplified compared to MCP-based approaches - goes direct to OpenAI tools format
 """
 
 from dataclasses import dataclass
+from functools import wraps
+import inspect
 from typing import Any, Callable, Awaitable
-from collections.abc import Coroutine
 
 
 def _type_to_json_schema(python_type: type) -> dict[str, str]:
@@ -78,22 +79,40 @@ def _convert_schema_to_openai(input_schema: dict[str, type] | dict[str, Any]) ->
         return input_schema
 
     # Convert simple type mapping to JSON Schema
-    properties = {}
+    properties: dict[str, Any] = {}
+    required_params: list[str] = []
+
     for param_name, param_type in input_schema.items():
         if isinstance(param_type, type):
-            # Python type -> JSON Schema
             properties[param_name] = _type_to_json_schema(param_type)
-        elif isinstance(param_type, dict):
-            # Already a schema property
-            properties[param_name] = param_type
-        else:
-            # Fallback to string
-            properties[param_name] = {"type": "string"}
+            required_params.append(param_name)
+            continue
+
+        if isinstance(param_type, dict):
+            # Copy so we don't mutate caller data
+            property_schema = dict(param_type)
+            optional_flag = property_schema.pop("optional", False)
+            required_flag = property_schema.pop("required", None)
+            properties[param_name] = property_schema
+
+            if required_flag is True:
+                required_params.append(param_name)
+            elif required_flag is False or optional_flag:
+                continue
+            elif "default" in property_schema:
+                continue
+            else:
+                required_params.append(param_name)
+            continue
+
+        # Fallback: treat as string and mark required
+        properties[param_name] = {"type": "string"}
+        required_params.append(param_name)
 
     return {
         "type": "object",
         "properties": properties,
-        "required": list(properties.keys()),  # All params required by default
+        "required": required_params,
     }
 
 
@@ -249,11 +268,22 @@ def tool(
     """
 
     def decorator(handler: Callable[[dict[str, Any]], Awaitable[Any]]) -> Tool:
+        async_handler: Callable[[dict[str, Any]], Awaitable[Any]]
+
+        if inspect.iscoroutinefunction(handler):
+            async_handler = handler
+        else:
+            @wraps(handler)
+            async def async_wrapper(arguments: dict[str, Any]) -> Any:
+                return handler(arguments)
+
+            async_handler = async_wrapper
+
         return Tool(
             name=name,
             description=description,
             input_schema=input_schema,
-            handler=handler,
+            handler=async_handler,
         )
 
     return decorator

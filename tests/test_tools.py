@@ -132,6 +132,18 @@ class TestToolDecorator:
         result = await search_tool.execute({"query": "test", "limit": 5})
         assert result == {"query": "test", "count": 5}
 
+    @pytest.mark.asyncio
+    async def test_sync_handler_is_supported(self):
+        """Sync handlers should be wrapped so execute still awaits correctly"""
+
+        @tool("shout", "Uppercase text", {"text": str})
+        def shout_tool(args):
+            return args["text"].upper()
+
+        assert isinstance(shout_tool, Tool)
+        result = await shout_tool.execute({"text": "hello"})
+        assert result == "HELLO"
+
 
 class TestToolOpenAIFormat:
     """Test conversion to OpenAI format"""
@@ -236,3 +248,20 @@ class TestToolErrorHandling:
         # Error case
         result = await divide_tool.execute({"a": 10, "b": 0})
         assert result == {"error": "Division by zero"}
+
+
+class TestSchemaOptionality:
+    """Tests for optional parameter handling in schema conversion"""
+
+    def test_optional_param_via_default(self):
+        """Parameters with defaults should not be marked required"""
+        schema = {
+            "query": str,
+            "limit": {"type": "integer", "default": 10}
+        }
+
+        converted = _convert_schema_to_openai(schema)
+
+        assert converted["type"] == "object"
+        assert set(converted["properties"].keys()) == {"query", "limit"}
+        assert converted["required"] == ["query"]
