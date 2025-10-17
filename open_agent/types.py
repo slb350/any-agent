@@ -1,6 +1,9 @@
 """Type definitions for Open Agent SDK"""
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import Literal, TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from .tools import Tool
 
 
 @dataclass
@@ -28,10 +31,19 @@ class ToolUseError:
 
 
 @dataclass
+class ToolResultBlock:
+    """Tool execution result"""
+    tool_use_id: str
+    content: str | dict[str, Any] | list[Any]
+    is_error: bool = False
+    type: Literal["tool_result"] = "tool_result"
+
+
+@dataclass
 class AssistantMessage:
     """Full assistant message"""
     role: Literal["assistant"] = "assistant"
-    content: list[TextBlock | ToolUseBlock | ToolUseError] = field(default_factory=list)
+    content: list[TextBlock | ToolUseBlock | ToolUseError | ToolResultBlock] = field(default_factory=list)
 
 
 @dataclass
@@ -47,6 +59,7 @@ class AgentOptions:
         system_prompt: System prompt for the model
         model: Model name (e.g., "qwen2.5-32b-instruct")
         base_url: OpenAI-compatible endpoint URL
+        tools: List of Tool instances for function calling (optional)
         max_turns: Maximum conversation turns
         max_tokens: Tokens to generate (None uses provider default)
         temperature: Sampling temperature
@@ -73,6 +86,7 @@ class AgentOptions:
     system_prompt: str
     model: str
     base_url: str
+    tools: list["Tool"] = field(default_factory=list)
     max_turns: int = 1
     max_tokens: int | None = 4096  # Default 4096, None uses provider default
     temperature: float = 0.7

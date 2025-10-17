@@ -73,8 +73,10 @@ coverage.xml
 
 # Project specific
 archive/
+reference/
 CLAUDE.md
 PUBLIC_RELEASE_CHECKLIST.md
+docs/features.md
 *.log
 *.db
 *.sqlite

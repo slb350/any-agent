@@ -110,6 +110,60 @@ asyncio.run(main())
 
 See `examples/tool_use_agent.py` for progressively richer patterns (manual loop, helper function, and reusable agent class) demonstrating `add_tool_result()` in context.
 
+### Function Calling with Tools
+
+Define tools using the `@tool` decorator for clean, type-safe function calling:
+
+```python
+from open_agent import tool, Client, AgentOptions, ToolUseBlock
+
+# Define tools
+@tool("get_weather", "Get current weather", {"location": str, "units": str})
+async def get_weather(args):
+    return {
+        "temperature": 72,
+        "conditions": "sunny",
+        "units": args["units"]
+    }
+
+@tool("calculate", "Perform calculation", {"a": float, "b": float, "op": str})
+async def calculate(args):
+    ops = {"+": lambda a, b: a + b, "-": lambda a, b: a - b}
+    result = ops[args["op"]](args["a"], args["b"])
+    return {"result": result}
+
+# Use tools with agent
+options = AgentOptions(
+    system_prompt="You are a helpful assistant with access to tools.",
+    model="qwen2.5-32b-instruct",
+    base_url="http://localhost:1234/v1",
+    tools=[get_weather, calculate]  # Register tools
+)
+
+async with Client(options) as client:
+    await client.query("What's 25 + 17?")
+
+    async for block in client.receive_messages():
+        if isinstance(block, ToolUseBlock):
+            # Execute the tool
+            tool = {"calculate": calculate, "get_weather": get_weather}[block.name]
+            result = await tool.execute(block.input)
+
+            # Return result to agent
+            client.add_tool_result(block.id, result)
+
+            # Continue conversation
+            await client.query("")
+```
+
+**Key Features:**
+- **Type-safe schemas** - Simple Python types (`str`, `int`, `float`, `bool`) or full JSON Schema
+- **OpenAI-compatible** - Works with any OpenAI function calling endpoint
+- **Clean decorator API** - Similar to Claude SDK's `@tool`
+- **Automatic schema conversion** - Python types → JSON Schema for the model
+
+See `examples/calculator_tools.py` and `examples/simple_tool.py` for complete examples.
+
 ## 🚀 Practical Examples
 
 We've included two production-ready agents that demonstrate real-world usage:
@@ -316,6 +370,7 @@ class AgentOptions:
     system_prompt: str                      # System prompt
     model: str                              # Model name (required)
     base_url: str                           # OpenAI-compatible endpoint URL (required)
+    tools: list[Tool] = []                  # Tool instances for function calling
     max_turns: int = 1                      # Max conversation turns
     max_tokens: int | None = 4096           # Tokens to generate (None uses provider default)
     temperature: float = 0.7                # Sampling temperature
@@ -348,9 +403,33 @@ async with Client(options: AgentOptions) as client:
 ### Message Types
 
 - `TextBlock` - Text content from model
-- `ToolUseBlock` - Tool calls from model
+- `ToolUseBlock` - Tool calls from model (has `id`, `name`, `input` fields)
+- `ToolResultBlock` - Tool execution results to send back to model
 - `ToolUseError` - Tool call parsing error (malformed JSON, missing fields)
 - `AssistantMessage` - Full message wrapper
+
+### Tool System
+
+```python
+@tool(name: str, description: str, input_schema: dict)
+async def my_tool(args: dict) -> Any:
+    """Tool handler function"""
+    return result
+
+# Tool class
+class Tool:
+    name: str
+    description: str
+    input_schema: dict[str, type] | dict[str, Any]
+    handler: Callable[[dict], Awaitable[Any]]
+
+    async def execute(arguments: dict) -> Any
+    def to_openai_format() -> dict
+```
+
+**Schema formats:**
+- Simple: `{"param": str, "count": int}` - All parameters required
+- JSON Schema: Full schema with `type`, `properties`, `required`, etc.
 
 ## Recommended Models
 
@@ -381,6 +460,7 @@ open-agent-sdk/
 │   ├── __init__.py        # query, Client, AgentOptions exports
 │   ├── client.py          # Streaming query(), Client, tool helper
 │   ├── config.py          # Env/provider helpers
+│   ├── tools.py           # Tool decorator and schema conversion
 │   ├── types.py           # Dataclasses for options and blocks
 │   └── utils.py           # OpenAI client + ToolCallAggregator
 ├── docs/
@@ -391,6 +471,8 @@ open-agent-sdk/
 ├── examples/
 │   ├── git_commit_agent.py     # 🌟 Practical: Git commit message generator
 │   ├── log_analyzer_agent.py   # 🌟 Practical: Log file analyzer
+│   ├── calculator_tools.py     # Function calling with @tool decorator
+│   ├── simple_tool.py          # Minimal tool usage example
 │   ├── tool_use_agent.py       # Complete tool use patterns
 │   ├── simple_lmstudio.py      # Basic usage with LM Studio
 │   ├── ollama_chat.py          # Multi-turn chat example
@@ -403,6 +485,7 @@ open-agent-sdk/
 │   ├── test_client.py
 │   ├── test_config.py
 │   ├── test_query.py
+│   ├── test_tools.py              # Tool decorator and schema conversion
 │   └── test_utils.py
 ├── CHANGELOG.md
 ├── pyproject.toml

@@ -3,7 +3,7 @@ import logging
 import json
 from typing import AsyncGenerator, Any
 from .types import AgentOptions, AssistantMessage, TextBlock, ToolUseBlock, ToolUseError
-from .utils import create_client, format_messages, ToolCallAggregator
+from .utils import create_client, format_messages, format_tools, ToolCallAggregator
 
 logger = logging.getLogger(__name__)
 
@@ -31,14 +31,21 @@ async def query(
     messages = format_messages(options.system_prompt, prompt)
     aggregator = ToolCallAggregator()
 
+    # Prepare API request parameters
+    request_params: dict[str, Any] = {
+        "model": options.model,
+        "messages": messages,
+        "max_tokens": options.max_tokens,
+        "temperature": options.temperature,
+        "stream": True,
+    }
+
+    # Add tools if configured
+    if options.tools:
+        request_params["tools"] = format_tools(options.tools)
+
     try:
-        response = await client.chat.completions.create(
-            model=options.model,
-            messages=messages,
-            max_tokens=options.max_tokens,
-            temperature=options.temperature,
-            stream=True
-        )
+        response = await client.chat.completions.create(**request_params)
 
         try:
             async for chunk in response:
@@ -102,14 +109,21 @@ class Client:
             "content": prompt
         }
 
+        # Prepare API request parameters
+        request_params: dict[str, Any] = {
+            "model": self.options.model,
+            "messages": messages,
+            "max_tokens": self.options.max_tokens,
+            "temperature": self.options.temperature,
+            "stream": True,
+        }
+
+        # Add tools if configured
+        if self.options.tools:
+            request_params["tools"] = format_tools(self.options.tools)
+
         try:
-            response_stream = await self.client.chat.completions.create(
-                model=self.options.model,
-                messages=messages,
-                max_tokens=self.options.max_tokens,
-                temperature=self.options.temperature,
-                stream=True
-            )
+            response_stream = await self.client.chat.completions.create(**request_params)
         except Exception:
             self.response_stream = None
             self._aggregator = None

@@ -1,9 +1,12 @@
 """OpenAI client utilities"""
 import json
 import logging
-from typing import Any
+from typing import Any, TYPE_CHECKING
 from openai import AsyncOpenAI
 from .types import AgentOptions, TextBlock, ToolUseBlock, ToolUseError
+
+if TYPE_CHECKING:
+    from .tools import Tool
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +33,34 @@ def format_messages(
 
     messages.append({"role": "user", "content": user_prompt})
     return messages
+
+
+def format_tools(tools: list["Tool"]) -> list[dict[str, Any]]:
+    """
+    Convert Tool instances to OpenAI function calling format.
+
+    Args:
+        tools: List of Tool instances from @tool decorator
+
+    Returns:
+        List of tool definitions in OpenAI format
+
+    Example:
+        >>> tools = [add_tool, multiply_tool]
+        >>> format_tools(tools)
+        [
+            {
+                "type": "function",
+                "function": {
+                    "name": "add",
+                    "description": "Add two numbers",
+                    "parameters": {...}
+                }
+            },
+            ...
+        ]
+    """
+    return [tool.to_openai_format() for tool in tools]
 
 
 class ToolCallAggregator:
