@@ -1,13 +1,21 @@
 """
 Simple example using config helpers for environment variable support.
 
-To use your network LM Studio server:
+This example shows how to use env vars with fallbacks for flexibility.
+
+Usage:
+    # With environment variables
     export OPEN_AGENT_BASE_URL="http://192.168.1.100:1234/v1"
     export OPEN_AGENT_MODEL="qwen/qwen3-30b-a3b-2507"
     python examples/simple_with_env.py
 
-Or use provider shorthand:
-    python examples/simple_with_env.py  # Uses ollama default
+    # Without env vars (uses fallbacks)
+    python examples/simple_with_env.py
+
+For stricter "fail fast if env missing" behavior, check get_model() for None:
+    model = get_model()
+    if not model:
+        raise ValueError("Set OPEN_AGENT_MODEL environment variable")
 """
 import asyncio
 from open_agent import query, AgentOptions, TextBlock

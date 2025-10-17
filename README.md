@@ -395,8 +395,7 @@ open-agent-sdk/
 │   ├── simple_lmstudio.py      # Basic usage with LM Studio
 │   ├── ollama_chat.py          # Multi-turn chat example
 │   ├── config_examples.py      # Configuration patterns
-│   ├── simple_with_env.py      # Environment variable config
-│   └── env_config_complete.py  # Strict env config
+│   └── simple_with_env.py      # Environment variable config
 ├── tests/
 │   ├── integration/               # Provider integration tests
 │   │   ├── test_lmstudio.py      # LM Studio test suite
@@ -423,11 +422,10 @@ open-agent-sdk/
 - **`tool_use_agent.py`** – Complete tool use patterns: manual, helper, and agent class
 
 ### Core SDK Usage
-- `simple_lmstudio.py` – Minimal streaming query against a local LM Studio server
+- `simple_lmstudio.py` – Minimal streaming query with hard-coded config (simplest quickstart)
+- `simple_with_env.py` – Using environment variables with config helpers and fallbacks
+- `config_examples.py` – Comprehensive reference: provider shortcuts, priority, and all config patterns
 - `ollama_chat.py` – Multi-turn chat loop with Ollama, including tool-call logging
-- `simple_with_env.py` – Query pattern using config helpers with fallbacks
-- `config_examples.py` – Shows provider shortcuts and manual overrides side by side
-- `env_config_complete.py` – Strict environment-variable configuration
 
 ### Provider Integration Tests
 Located in `tests/integration/`:

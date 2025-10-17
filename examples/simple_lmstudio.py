@@ -1,6 +1,6 @@
 """Simple query example with LM Studio"""
 import asyncio
-from open_agent import query, AgentOptions, TextBlock, ToolUseBlock, ToolUseError
+from open_agent import query, AgentOptions, TextBlock
 
 
 async def main():
@@ -24,11 +24,6 @@ async def main():
             if isinstance(block, TextBlock):
                 response_text += block.text
                 print(block.text, end="", flush=True)
-            elif isinstance(block, ToolUseBlock):
-                print(f"\n[Tool: {block.name}]", flush=True)
-                print(f"  Input: {block.input}")
-            elif isinstance(block, ToolUseError):
-                print(f"\n[Tool Error: {block.error}]", flush=True)
 
     print(f"\n\nFull response: {response_text}")
 
