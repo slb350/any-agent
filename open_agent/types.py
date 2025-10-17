@@ -62,6 +62,8 @@ class AgentOptions:
         base_url: OpenAI-compatible endpoint URL
         tools: List of Tool instances for function calling (optional)
         hooks: Dict of hook event names to handler lists (optional)
+        auto_execute_tools: Enable automatic tool execution (default False for backward compatibility)
+        max_tool_iterations: Maximum tool execution iterations to prevent infinite loops (default 5)
         max_turns: Maximum conversation turns
         max_tokens: Tokens to generate (None uses provider default)
         temperature: Sampling temperature
@@ -74,6 +76,16 @@ class AgentOptions:
             system_prompt="...",
             model="qwen2.5-32b-instruct",
             base_url="http://localhost:1234/v1"
+        )
+
+        # With automatic tool execution
+        AgentOptions(
+            system_prompt="...",
+            model="qwen2.5-32b-instruct",
+            base_url="http://localhost:1234/v1",
+            tools=[add, subtract, multiply],
+            auto_execute_tools=True,
+            max_tool_iterations=10
         )
 
         # Using config helpers in your agent (optional)
@@ -90,6 +102,8 @@ class AgentOptions:
     base_url: str
     tools: list["Tool"] = field(default_factory=list)
     hooks: dict[str, list["HookHandler"]] | None = None
+    auto_execute_tools: bool = False
+    max_tool_iterations: int = 5
     max_turns: int = 1
     max_tokens: int | None = 4096  # Default 4096, None uses provider default
     temperature: float = 0.7

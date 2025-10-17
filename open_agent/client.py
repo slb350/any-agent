@@ -156,6 +156,19 @@ class Client:
         self.response_stream = None
         self._aggregator: ToolCallAggregator | None = None
 
+        # Build tool registry with duplicate validation
+        self._tool_registry: dict[str, Any] = {}  # Maps tool name -> Tool instance
+        if options.tools:
+            seen_names: set[str] = set()
+            for tool in options.tools:
+                if tool.name in seen_names:
+                    raise ValueError(
+                        f"Duplicate tool name '{tool.name}' detected. "
+                        f"Each tool must have a unique name."
+                    )
+                seen_names.add(tool.name)
+                self._tool_registry[tool.name] = tool
+
     async def __aenter__(self):
         return self
 
@@ -225,27 +238,207 @@ class Client:
         # Add user message to history only after successful request setup
         self.message_history.append(user_entry)
 
-    async def receive_messages(self) -> AsyncGenerator[TextBlock | ToolUseBlock | ToolUseError, None]:
-        """Stream individual blocks from response"""
+    async def _continue_turn(self):
+        """
+        Continue conversation without new user message or hook re-firing.
+        Used by auto-execution loop after tool results are added to history.
+
+        Unlike query(), this:
+        - Does NOT fire UserPromptSubmit hooks
+        - Does NOT add new user message to history
+        - Does NOT update _last_prompt
+        - Reuses existing message_history (which includes tool results)
+        - Uses empty prompt (like manual query("")) to avoid repeating user's question
+        """
+        # Format messages with current history (includes tool results)
+        # Use empty prompt - history already contains all context
+        messages = format_messages(
+            self.options.system_prompt,
+            "",  # Empty prompt for continuation (mirrors manual query("") pattern)
+            self.message_history
+        )
+
+        # Prepare API request parameters
+        request_params: dict[str, Any] = {
+            "model": self.options.model,
+            "messages": messages,
+            "max_tokens": self.options.max_tokens,
+            "temperature": self.options.temperature,
+            "stream": True,
+        }
+
+        # Add tools if configured
+        if self.options.tools:
+            request_params["tools"] = format_tools(self.options.tools)
+
+        try:
+            response_stream = await self.client.chat.completions.create(**request_params)
+        except Exception:
+            self.response_stream = None
+            self._aggregator = None
+            raise
+
+        self.response_stream = response_stream
+        # Initialize aggregator for this continuation
+        self._aggregator = ToolCallAggregator()
+        # Note: We do NOT add a user message - history already has tool results
+
+    async def _auto_execute_loop(self) -> AsyncGenerator[TextBlock | ToolUseBlock | ToolUseError, None]:
+        """
+        Automatic tool execution loop.
+        Executes tools automatically and continues conversation until text-only response
+        or max_tool_iterations reached.
+
+        This method:
+        1. Calls _receive_once() to get all blocks (fully consumes stream before execution)
+        2. Yields all blocks to caller
+        3. If text-only, updates history and returns
+        4. If tool blocks present:
+           - Executes each tool automatically
+           - Adds results to history (fires PostToolUse hooks)
+           - Continues conversation via _continue_turn()
+        5. Repeats until text-only or max_tool_iterations reached
+        """
+        for iteration in range(self.options.max_tool_iterations):
+            # Get all blocks from this turn (ensures stream fully consumed before tool execution)
+            assistant_blocks = await self._receive_once()
+
+            # Yield all blocks to caller
+            for block in assistant_blocks:
+                yield block
+
+            # Check if we have any tool calls
+            tool_blocks = [b for b in assistant_blocks if isinstance(b, ToolUseBlock)]
+
+            # Add assistant response to history BEFORE checking if text-only
+            # (needed so add_tool_result can find the tool_call_id)
+            history_entry = self._format_history_entry(assistant_blocks)
+            self.message_history.append(history_entry)
+
+            if not tool_blocks:
+                # Text-only response - we're done
+                self.turn_count += 1
+
+                if self.turn_count >= self.options.max_turns:
+                    logger.info(f"Reached max_turns ({self.options.max_turns})")
+
+                # Reset streaming state
+                self.response_stream = None
+                self._aggregator = None
+                return
+
+            # We have tool calls - execute them automatically
+            for tool_block in tool_blocks:
+                tool_name = tool_block.name
+                tool_input = tool_block.input
+                tool_call_id = tool_block.id
+
+                # Look up tool in registry
+                tool = self._tool_registry.get(tool_name)
+                if not tool:
+                    # Unknown tool - add error to history and yield ToolUseError
+                    error_payload = {
+                        "error": f"Tool '{tool_name}' not found in registry",
+                        "tool": tool_name
+                    }
+                    logger.warning(f"Unknown tool '{tool_name}' requested")
+
+                    # Yield ToolUseError for monitoring
+                    yield ToolUseError(
+                        error=f"Tool '{tool_name}' not found in registry",
+                        raw_data=str(tool_input)
+                    )
+
+                    # Add to history so model sees the error
+                    await self.add_tool_result(
+                        tool_call_id=tool_call_id,
+                        content=error_payload,  # Dict, not JSON string
+                        name=tool_name
+                    )
+                    continue
+
+                # Execute tool
+                try:
+                    result = await tool.execute(tool_input)
+                    logger.debug(f"Tool {tool_name} executed successfully")
+                    await self.add_tool_result(
+                        tool_call_id=tool_call_id,
+                        content=result,
+                        name=tool_name
+                    )
+                except Exception as e:
+                    # Tool execution failed - add error to history and yield ToolUseError
+                    error_payload = {
+                        "error": f"Tool execution failed: {str(e)}",
+                        "tool": tool_name
+                    }
+                    logger.error(f"Tool {tool_name} execution failed: {e}")
+
+                    # Yield ToolUseError for monitoring
+                    yield ToolUseError(
+                        error=f"Tool execution failed: {str(e)}",
+                        raw_data=str(tool_input)
+                    )
+
+                    # Add to history so model sees the error
+                    await self.add_tool_result(
+                        tool_call_id=tool_call_id,
+                        content=error_payload,  # Dict, not JSON string
+                        name=tool_name
+                    )
+
+            # Continue conversation (get model's response to tool results)
+            # Note: assistant response with tool calls already added to history above
+            await self._continue_turn()
+            # Loop again to process next response
+
+        # Hit max_tool_iterations - get final response and return
+        logger.warning(
+            f"Reached max_tool_iterations ({self.options.max_tool_iterations}). "
+            f"Stopping auto-execution."
+        )
+
+        # Get final response
+        assistant_blocks = await self._receive_once()
+        for block in assistant_blocks:
+            yield block
+
+        # Update history and state
+        history_entry = self._format_history_entry(assistant_blocks)
+        self.message_history.append(history_entry)
+        self.turn_count += 1
+
+        if self.turn_count >= self.options.max_turns:
+            logger.info(f"Reached max_turns ({self.options.max_turns})")
+
+        # Reset streaming state
+        self.response_stream = None
+        self._aggregator = None
+
+    async def _receive_once(self) -> list[TextBlock | ToolUseBlock | ToolUseError]:
+        """
+        Internal helper to consume one complete response from the model.
+        Returns list of blocks after fully consuming stream and running hooks.
+        Does NOT update history or turn_count - caller's responsibility.
+        """
         if not self.response_stream:
-            raise RuntimeError("Call query() first")
+            raise RuntimeError("Call query() or _continue_turn() first")
         if not self._aggregator:
             raise RuntimeError("Aggregator not initialized")
 
         assistant_blocks: list[TextBlock | ToolUseBlock | ToolUseError] = []
 
-        # Stream text blocks
+        # Stream text blocks - MUST fully consume before returning
         async for chunk in self.response_stream:
             text_block = self._aggregator.process_chunk(chunk)
             if text_block:
                 assistant_blocks.append(text_block)
-                yield text_block
 
         # Finalize tool calls
         tool_blocks = self._aggregator.finalize_tools()
         if tool_blocks:
             for tool_block in tool_blocks:
-                # Fire PreToolUse hook before yielding tool block
+                # Fire PreToolUse hook before adding tool block
                 if isinstance(tool_block, ToolUseBlock):
                     event = PreToolUseEvent(
                         tool_name=tool_block.name,
@@ -257,12 +450,11 @@ class Client:
 
                     # Handle hook decision
                     if decision and not decision.continue_:
-                        # Hook blocked the tool - yield error instead
+                        # Hook blocked the tool - add error instead
                         error_msg = decision.reason or "Tool use blocked by hook"
                         logger.warning(f"PreToolUse hook blocked {tool_block.name}: {error_msg}")
                         error_block = ToolUseError(error=error_msg, raw_data=str(tool_block.input))
                         assistant_blocks.append(error_block)
-                        yield error_block
                         continue
 
                     # If hook modified input, update the block
@@ -270,24 +462,54 @@ class Client:
                         logger.info(f"PreToolUse hook modified {tool_block.name} input")
                         tool_block.input = decision.modified_input
 
-                # Add to history and yield
+                # Add to blocks list
                 assistant_blocks.append(tool_block)
-                yield tool_block
 
-        # Add assistant response to history with proper structure
-        # Preserve both text and tool calls for OpenAI API compatibility
-        history_entry = self._format_history_entry(assistant_blocks)
-        self.message_history.append(history_entry)
+        return assistant_blocks
 
-        self.turn_count += 1
+    async def receive_messages(self) -> AsyncGenerator[TextBlock | ToolUseBlock | ToolUseError, None]:
+        """
+        Stream individual blocks from response.
 
-        # Check max turns
-        if self.turn_count >= self.options.max_turns:
-            logger.info(f"Reached max_turns ({self.options.max_turns})")
+        Dispatches to either:
+        - _auto_execute_loop() if auto_execute_tools=True (automatic tool execution)
+        - Manual mode if auto_execute_tools=False (caller handles tool execution)
 
-        # Reset streaming state
-        self.response_stream = None
-        self._aggregator = None
+        In manual mode, caller must:
+        1. Receive ToolUseBlock instances
+        2. Execute tools themselves
+        3. Call add_tool_result() for each tool
+        4. Call query("") to continue conversation
+
+        In auto mode, tools are executed automatically and the loop continues
+        until a text-only response is received.
+        """
+        if self.options.auto_execute_tools:
+            # Auto mode - execute tools automatically until text-only response
+            async for block in self._auto_execute_loop():
+                yield block
+        else:
+            # Manual mode - caller handles tool execution
+            # Get all blocks from the response
+            assistant_blocks = await self._receive_once()
+
+            # Yield each block to caller
+            for block in assistant_blocks:
+                yield block
+
+            # Add assistant response to history with proper structure
+            history_entry = self._format_history_entry(assistant_blocks)
+            self.message_history.append(history_entry)
+
+            self.turn_count += 1
+
+            # Check max turns
+            if self.turn_count >= self.options.max_turns:
+                logger.info(f"Reached max_turns ({self.options.max_turns})")
+
+            # Reset streaming state
+            self.response_stream = None
+            self._aggregator = None
 
     def _format_history_entry(
         self,
