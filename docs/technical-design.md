@@ -586,6 +586,58 @@ class Client:
         if self.turn_count >= self.options.max_turns:
             # Optionally raise StopIteration or set a flag
             pass
+
+    async def interrupt(self) -> None:
+        """
+        Interrupt current operation and cancel streaming (v0.4.0+).
+
+        Safe to call multiple times (idempotent).
+        Safe to call when no operation is in progress (no-op).
+
+        Cleans up:
+        - Cancels streaming task if running
+        - Closes HTTP response stream
+        - Clears aggregator state
+        - Leaves client in valid state for reuse
+
+        Examples:
+            # Timeout-based interruption
+            try:
+                await asyncio.wait_for(process_messages(client), timeout=5.0)
+            except asyncio.TimeoutError:
+                await client.interrupt()
+
+            # Conditional interruption
+            async for block in client.receive_messages():
+                if should_cancel:
+                    await client.interrupt()
+                    break
+        """
+        if self._interrupted:
+            return  # Already interrupted
+
+        self._interrupted = True
+
+        # Cancel streaming task
+        if self._stream_task and not self._stream_task.done():
+            stream_task = self._stream_task
+            current_task = asyncio.current_task()
+            if stream_task is not current_task:
+                stream_task.cancel()
+                try:
+                    await stream_task
+                except asyncio.CancelledError:
+                    pass
+            self._stream_task = None
+
+        if self.response_stream and hasattr(self.response_stream, "aclose"):
+            try:
+                await self.response_stream.aclose()
+            except Exception as exc:
+                logger.warning(f"Error closing stream: {exc}")
+
+        self.response_stream = None
+        self._aggregator = None
 ```
 
 ### 5. context.py - Context Management Utilities (v0.2.3+)
@@ -1554,7 +1606,17 @@ OpenAI-style streaming delivers tool calls incrementally. Arguments are streamed
 - ✅ 10 comprehensive tests covering all scenarios
 - ✅ Consolidated example showing both modes
 
-**Planned (Phase 4+)**:
+**Completed (v0.4.0)** - Interrupt Capability:
+- ✅ `Client.interrupt()` method for cancelling long-running operations
+- ✅ Active HTTP stream closure (not just flag-based)
+- ✅ Partial output handling (flush text, skip incomplete tools)
+- ✅ Integration with auto-execution loop (interrupt checks at all decision points)
+- ✅ Concurrent interruption support (safe from separate tasks)
+- ✅ Idempotent interrupt calls (safe to call multiple times)
+- ✅ Client reusable after interrupt
+- ✅ 8 comprehensive tests + 5 example patterns
+
+**Planned (Phase 7+)**:
 - ⏳ Permission system (allowedTools, disallowedTools)
 - ⏳ Session persistence (SQLite)
 - ⏳ Retry logic with exponential backoff
@@ -1663,6 +1725,18 @@ The technical design succeeds when:
 10. ✅ Consolidated example showing both automatic and manual modes
 11. ✅ Hooks work identically in both modes
 12. ✅ "Pit of success" design - auto mode is easiest path
+
+**Phase 6 - Interrupt Capability (v0.4.0):**
+1. ✅ `Client.interrupt()` method for cancelling operations
+2. ✅ Active HTTP stream closure via `response_stream.aclose()`
+3. ✅ Interrupt checking at all decision points in auto-execution
+4. ✅ Partial output handling (flush text, skip tool finalization)
+5. ✅ Concurrent interruption support (from separate tasks)
+6. ✅ Idempotent interrupt() calls (safe to call multiple times)
+7. ✅ Client reusable after interrupt
+8. ✅ 8 comprehensive interrupt tests (136 total)
+9. ✅ 5 example patterns (timeout, conditional, auto-exec, concurrent, retry)
+10. ✅ Clean cancellation without corrupting state
 
 **Future Phases:**
 - ⏳ Permission system for tool control

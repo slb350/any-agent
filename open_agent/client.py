@@ -1,4 +1,5 @@
 """Main client implementation"""
+import asyncio
 import logging
 import json
 from typing import AsyncGenerator, Any
@@ -156,6 +157,10 @@ class Client:
         self.response_stream = None
         self._aggregator: ToolCallAggregator | None = None
 
+        # Interrupt state management
+        self._interrupted = False
+        self._stream_task: asyncio.Task | None = None
+
         # Build tool registry with duplicate validation
         self._tool_registry: dict[str, Any] = {}  # Maps tool name -> Tool instance
         if options.tools:
@@ -179,8 +184,73 @@ class Client:
         """Close the underlying OpenAI client."""
         await self.client.close()
 
+    async def interrupt(self) -> None:
+        """
+        Interrupt the current operation and cancel any in-progress streaming.
+
+        This method:
+        - Cancels the current response stream
+        - Stops auto-execution loop if running
+        - Cleans up network resources
+        - Leaves client in valid state for reuse
+
+        Safe to call multiple times (idempotent).
+        Safe to call when no operation is in progress (no-op).
+
+        Examples:
+            # Cancel current streaming response
+            await client.query("Long task...")
+            await asyncio.sleep(1)  # Let it start
+            await client.interrupt()  # Cancel it
+
+            # Use with timeout
+            try:
+                await asyncio.wait_for(
+                    process_messages(client),
+                    timeout=5.0
+                )
+            except asyncio.TimeoutError:
+                await client.interrupt()
+        """
+        if self._interrupted:
+            # Already interrupted or nothing running
+            logger.debug("Interrupt called but already interrupted")
+            return
+
+        logger.info("Interrupting current operation")
+        self._interrupted = True
+
+        # Cancel the streaming task if it exists
+        if self._stream_task and not self._stream_task.done():
+            stream_task = self._stream_task
+            current_task = asyncio.current_task()
+            if stream_task is not current_task:
+                stream_task.cancel()
+                try:
+                    await stream_task
+                except asyncio.CancelledError:
+                    pass  # Expected
+            self._stream_task = None
+
+        # Best-effort close on the iterator itself
+        if self.response_stream and hasattr(self.response_stream, "aclose"):
+            try:
+                await self.response_stream.aclose()
+            except Exception as exc:
+                logger.warning(f"Error closing response stream: {exc}")
+
+        self.response_stream = None
+
+        # Clear aggregator
+        self._aggregator = None
+
+        logger.info("Operation interrupted successfully")
+
     async def query(self, prompt: str):
         """Send query and prepare to receive messages"""
+        # Reset interrupt flag for new query
+        self._interrupted = False
+
         # Fire UserPromptSubmit hook before formatting/sending
         event = UserPromptSubmitEvent(
             prompt=prompt,
@@ -246,7 +316,6 @@ class Client:
         Unlike query(), this:
         - Does NOT fire UserPromptSubmit hooks
         - Does NOT add new user message to history
-        - Does NOT update _last_prompt
         - Reuses existing message_history (which includes tool results)
         - Uses empty prompt (like manual query("")) to avoid repeating user's question
         """
@@ -300,11 +369,30 @@ class Client:
         5. Repeats until text-only or max_tool_iterations reached
         """
         for iteration in range(self.options.max_tool_iterations):
+            # Check at loop start
+            if self._interrupted:
+                logger.info(f"Auto-execution interrupted at iteration {iteration}")
+                return
+
             # Get all blocks from this turn (ensures stream fully consumed before tool execution)
-            assistant_blocks = await self._receive_once()
+            try:
+                assistant_blocks = await self._receive_once()
+            except Exception as e:
+                if self._interrupted:
+                    logger.info("Auto-execution interrupted during streaming")
+                    return
+                raise
+
+            # Check for interrupt after receiving blocks
+            if self._interrupted:
+                logger.info("Auto-execution interrupted after receiving blocks")
+                return
 
             # Yield all blocks to caller
             for block in assistant_blocks:
+                if self._interrupted:
+                    logger.info("Auto-execution interrupted during block yielding")
+                    return
                 yield block
 
             # Check if we have any tool calls
@@ -329,6 +417,11 @@ class Client:
 
             # We have tool calls - execute them automatically
             for tool_block in tool_blocks:
+                # Check BEFORE starting tool
+                if self._interrupted:
+                    logger.info("Auto-execution interrupted before tool execution")
+                    return
+
                 tool_name = tool_block.name
                 tool_input = tool_block.input
                 tool_call_id = tool_block.id
@@ -357,15 +450,30 @@ class Client:
                     )
                     continue
 
-                # Execute tool
+                # Execute tool in try/except to catch CancelledError
                 try:
-                    result = await tool.execute(tool_input)
+                    # Wrap in create_task so cancellation propagates
+                    tool_task = asyncio.create_task(tool.execute(tool_input))
+                    result = await tool_task
+
+                    # Check AFTER tool execution
+                    if self._interrupted:
+                        logger.info(f"Auto-execution interrupted after {tool_name}")
+                        return
+
                     logger.debug(f"Tool {tool_name} executed successfully")
                     await self.add_tool_result(
                         tool_call_id=tool_call_id,
                         content=result,
                         name=tool_name
                     )
+
+                except asyncio.CancelledError:
+                    logger.info(f"Tool {tool_name} cancelled")
+                    if self._interrupted:
+                        return
+                    raise
+
                 except Exception as e:
                     # Tool execution failed - add error to history and yield ToolUseError
                     error_payload = {
@@ -386,6 +494,15 @@ class Client:
                         content=error_payload,  # Dict, not JSON string
                         name=tool_name
                     )
+
+                    # Check for interrupt after error handling
+                    if self._interrupted:
+                        return
+
+            # Check BEFORE continuing conversation
+            if self._interrupted:
+                logger.info("Auto-execution interrupted before _continue_turn")
+                return
 
             # Continue conversation (get model's response to tool results)
             # Note: assistant response with tool calls already added to history above
@@ -420,6 +537,9 @@ class Client:
         Internal helper to consume one complete response from the model.
         Returns list of blocks after fully consuming stream and running hooks.
         Does NOT update history or turn_count - caller's responsibility.
+
+        If interrupted mid-stream, flushes partial text blocks to history
+        and skips tool finalization.
         """
         if not self.response_stream:
             raise RuntimeError("Call query() or _continue_turn() first")
@@ -428,44 +548,85 @@ class Client:
 
         assistant_blocks: list[TextBlock | ToolUseBlock | ToolUseError] = []
 
-        # Stream text blocks - MUST fully consume before returning
-        async for chunk in self.response_stream:
-            text_block = self._aggregator.process_chunk(chunk)
-            if text_block:
-                assistant_blocks.append(text_block)
+        current_task = asyncio.current_task()
+        previous_task = self._stream_task
+        self._stream_task = current_task
 
-        # Finalize tool calls
-        tool_blocks = self._aggregator.finalize_tools()
-        if tool_blocks:
-            for tool_block in tool_blocks:
-                # Fire PreToolUse hook before adding tool block
-                if isinstance(tool_block, ToolUseBlock):
-                    event = PreToolUseEvent(
-                        tool_name=tool_block.name,
-                        tool_input=tool_block.input,
-                        tool_use_id=tool_block.id,
-                        history=self.message_history.copy()
-                    )
-                    decision = await self._run_hooks(HOOK_PRE_TOOL_USE, event)
+        try:
+            # Stream text blocks - check for interruption
+            try:
+                async for chunk in self.response_stream:
+                    if self._interrupted:
+                        logger.info("Streaming interrupted during chunk processing")
+                        break
 
-                    # Handle hook decision
-                    if decision and not decision.continue_:
-                        # Hook blocked the tool - add error instead
-                        error_msg = decision.reason or "Tool use blocked by hook"
-                        logger.warning(f"PreToolUse hook blocked {tool_block.name}: {error_msg}")
-                        error_block = ToolUseError(error=error_msg, raw_data=str(tool_block.input))
-                        assistant_blocks.append(error_block)
-                        continue
+                    text_block = self._aggregator.process_chunk(chunk)
+                    if text_block:
+                        assistant_blocks.append(text_block)
+            except asyncio.CancelledError:
+                logger.info("Streaming cancelled")
+                self._interrupted = True
+                raise
+            except Exception as exc:
+                # Stream closed or other error
+                if self._interrupted:
+                    logger.info(f"Stream closed during interrupt: {exc}")
+                else:
+                    raise
 
-                    # If hook modified input, update the block
-                    if decision and decision.modified_input is not None:
-                        logger.info(f"PreToolUse hook modified {tool_block.name} input")
-                        tool_block.input = decision.modified_input
+            # If interrupted mid-stream, flush partial text and clear pending tool buffers
+            if self._interrupted:
+                if assistant_blocks:
+                    # Flush partial text blocks to history (no tool data)
+                    text_parts = [block.text for block in assistant_blocks if isinstance(block, TextBlock)]
+                    if text_parts:
+                        history_entry = {"role": "assistant", "content": "".join(text_parts)}
+                        self.message_history.append(history_entry)
+                        logger.info("Flushed partial output to history due to interrupt")
 
-                # Add to blocks list
-                assistant_blocks.append(tool_block)
+                # Clear pending tool buffers - they won't appear in history
+                if self._aggregator and hasattr(self._aggregator, 'pending_tools'):
+                    self._aggregator.pending_tools.clear()
 
-        return assistant_blocks
+                return assistant_blocks
+
+            # Normal path: finalize tools when not interrupted
+            tool_blocks = self._aggregator.finalize_tools()
+            if tool_blocks:
+                for tool_block in tool_blocks:
+                    # Fire PreToolUse hook before adding tool block
+                    if isinstance(tool_block, ToolUseBlock):
+                        event = PreToolUseEvent(
+                            tool_name=tool_block.name,
+                            tool_input=tool_block.input,
+                            tool_use_id=tool_block.id,
+                            history=self.message_history.copy()
+                        )
+                        decision = await self._run_hooks(HOOK_PRE_TOOL_USE, event)
+
+                        # Handle hook decision
+                        if decision and not decision.continue_:
+                            # Hook blocked the tool - add error instead
+                            error_msg = decision.reason or "Tool use blocked by hook"
+                            logger.warning(f"PreToolUse hook blocked {tool_block.name}: {error_msg}")
+                            error_block = ToolUseError(error=error_msg, raw_data=str(tool_block.input))
+                            assistant_blocks.append(error_block)
+                            continue
+
+                        # If hook modified input, update the block
+                        if decision and decision.modified_input is not None:
+                            logger.info(f"PreToolUse hook modified {tool_block.name} input")
+                            tool_block.input = decision.modified_input
+
+                    # Add to blocks list
+                    assistant_blocks.append(tool_block)
+
+            return assistant_blocks
+
+        finally:
+            # Restore previous stream task handle
+            if self._stream_task is current_task:
+                self._stream_task = previous_task
 
     async def receive_messages(self) -> AsyncGenerator[TextBlock | ToolUseBlock | ToolUseError, None]:
         """
@@ -484,32 +645,52 @@ class Client:
         In auto mode, tools are executed automatically and the loop continues
         until a text-only response is received.
         """
-        if self.options.auto_execute_tools:
-            # Auto mode - execute tools automatically until text-only response
-            async for block in self._auto_execute_loop():
-                yield block
-        else:
-            # Manual mode - caller handles tool execution
-            # Get all blocks from the response
-            assistant_blocks = await self._receive_once()
+        if self._interrupted and not self.response_stream:
+            logger.info("No active response stream (already interrupted); nothing to receive")
+            return
 
-            # Yield each block to caller
-            for block in assistant_blocks:
-                yield block
+        try:
+            if self.options.auto_execute_tools:
+                # Auto mode - execute tools automatically until text-only response
+                async for block in self._auto_execute_loop():
+                    if self._interrupted:
+                        logger.info("Auto-execution loop interrupted")
+                        return
+                    yield block
+            else:
+                # Manual mode - caller handles tool execution
+                # Get all blocks from the response
+                assistant_blocks = await self._receive_once()
 
-            # Add assistant response to history with proper structure
-            history_entry = self._format_history_entry(assistant_blocks)
-            self.message_history.append(history_entry)
+                # Check for interrupt after receiving blocks
+                if self._interrupted:
+                    logger.info("Message receive interrupted")
+                    return
 
-            self.turn_count += 1
+                # Yield each block to caller
+                for block in assistant_blocks:
+                    if self._interrupted:
+                        logger.info("Message receive interrupted during yielding")
+                        return
+                    yield block
 
-            # Check max turns
-            if self.turn_count >= self.options.max_turns:
-                logger.info(f"Reached max_turns ({self.options.max_turns})")
+                # Add assistant response to history with proper structure
+                history_entry = self._format_history_entry(assistant_blocks)
+                self.message_history.append(history_entry)
 
-            # Reset streaming state
-            self.response_stream = None
-            self._aggregator = None
+                self.turn_count += 1
+
+                # Check max turns
+                if self.turn_count >= self.options.max_turns:
+                    logger.info(f"Reached max_turns ({self.options.max_turns})")
+
+                # Reset streaming state
+                self.response_stream = None
+                self._aggregator = None
+        except asyncio.CancelledError:
+            logger.info("Streaming cancelled via task cancellation")
+            self._interrupted = True
+            raise
 
     def _format_history_entry(
         self,

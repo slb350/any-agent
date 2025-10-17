@@ -426,6 +426,122 @@ await client.add_tool_result(tool_id, result)
 
 See `examples/hooks_example.py` for 4 comprehensive patterns (security, audit, sanitization, combined).
 
+## Interrupt Capability
+
+Cancel long-running operations cleanly without corrupting client state. Perfect for timeouts, user cancellations, or conditional interruptions.
+
+### Quick Example
+
+```python
+from open_agent import Client, AgentOptions
+import asyncio
+
+async def main():
+    options = AgentOptions(
+        system_prompt="You are a helpful assistant.",
+        model="qwen2.5-32b-instruct",
+        base_url="http://localhost:1234/v1"
+    )
+
+    async with Client(options) as client:
+        await client.query("Write a detailed 1000-word essay...")
+
+        # Timeout after 5 seconds
+        try:
+            async def collect_messages():
+                async for block in client.receive_messages():
+                    print(block.text, end="", flush=True)
+
+            await asyncio.wait_for(collect_messages(), timeout=5.0)
+        except asyncio.TimeoutError:
+            await client.interrupt()  # Clean cancellation
+            print("\n⚠️ Operation timed out!")
+
+        # Client is still usable after interrupt
+        await client.query("Short question?")
+        async for block in client.receive_messages():
+            print(block.text)
+```
+
+### Common Patterns
+
+**1. Timeout-Based Interruption**
+
+```python
+try:
+    await asyncio.wait_for(process_messages(client), timeout=10.0)
+except asyncio.TimeoutError:
+    await client.interrupt()
+    print("Operation timed out")
+```
+
+**2. Conditional Interruption**
+
+```python
+# Stop if response contains specific content
+full_text = ""
+async for block in client.receive_messages():
+    full_text += block.text
+    if "error" in full_text.lower():
+        await client.interrupt()
+        break
+```
+
+**3. User Cancellation (from separate task)**
+
+```python
+async def stream_task():
+    await client.query("Long task...")
+    async for block in client.receive_messages():
+        print(block.text, end="")
+
+async def cancel_button_task():
+    await asyncio.sleep(2.0)  # User waits 2 seconds
+    await client.interrupt()  # User clicks cancel
+
+# Run both concurrently
+await asyncio.gather(stream_task(), cancel_button_task())
+```
+
+**4. Interrupt During Auto-Execution**
+
+```python
+options = AgentOptions(
+    tools=[slow_tool, fast_tool],
+    auto_execute_tools=True,
+    max_tool_iterations=10
+)
+
+async with Client(options) as client:
+    await client.query("Use tools...")
+
+    tool_count = 0
+    async for block in client.receive_messages():
+        if isinstance(block, ToolUseBlock):
+            tool_count += 1
+            if tool_count >= 2:
+                await client.interrupt()  # Stop after 2 tools
+                break
+```
+
+### How It Works
+
+When you call `client.interrupt()`:
+1. **Active stream closure** - HTTP stream closed immediately (not just a flag)
+2. **Clean state** - Client remains in valid state for reuse
+3. **Partial output** - Text blocks flushed to history, incomplete tools skipped
+4. **Idempotent** - Safe to call multiple times
+5. **Concurrent-safe** - Can be called from separate asyncio tasks
+
+### Example
+
+See `examples/interrupt_demo.py` for 5 comprehensive patterns:
+- Timeout-based interruption
+- Conditional interruption
+- Auto-execution interruption
+- Concurrent interruption (simulated cancel button)
+- Interrupt and retry
+
 ## 🚀 Practical Examples
 
 We've included two production-ready agents that demonstrate real-world usage:
@@ -791,6 +907,7 @@ open-agent-sdk/
 │   ├── tool_use_agent.py       # Complete tool use patterns
 │   ├── context_management.py   # Manual history management patterns
 │   ├── hooks_example.py        # Lifecycle hooks patterns (security, audit, sanitization)
+│   ├── interrupt_demo.py       # Interrupt capability patterns (timeout, conditional, concurrent)
 │   ├── simple_lmstudio.py      # Basic usage with LM Studio
 │   ├── ollama_chat.py          # Multi-turn chat example
 │   ├── config_examples.py      # Configuration patterns
@@ -799,10 +916,12 @@ open-agent-sdk/
 │   ├── integration/               # Integration-style tests using fakes
 │   │   └── test_client_behaviour.py  # Streaming, multi-turn, tool flow coverage
 │   ├── test_agent_options.py
+│   ├── test_auto_execution.py     # Automatic tool execution
 │   ├── test_client.py
 │   ├── test_config.py
 │   ├── test_context.py            # Context utilities (token estimation, truncation)
 │   ├── test_hooks.py              # Lifecycle hooks (PreToolUse, PostToolUse, UserPromptSubmit)
+│   ├── test_interrupt.py          # Interrupt capability (timeout, concurrent, reuse)
 │   ├── test_query.py
 │   ├── test_tools.py              # Tool decorator and schema conversion
 │   └── test_utils.py

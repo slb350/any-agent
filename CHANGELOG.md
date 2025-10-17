@@ -5,6 +5,68 @@ All notable changes to Open Agent SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2025-10-17
+
+### Added
+- **Interrupt Capability** - Clean cancellation of long-running operations without corrupting state
+  - `Client.interrupt()` method for cancelling ongoing streaming operations
+  - Active HTTP stream closure via `response_stream.aclose()` (not just flag-based)
+  - Partial output handling: flushes text blocks to history, skips incomplete tool data
+  - Interrupt checking at all decision points in auto-execution loop
+  - Idempotent design: safe to call `interrupt()` multiple times
+  - Concurrent-safe: can be called from separate asyncio tasks
+  - Client remains reusable after interrupt - no need to recreate
+  - Flag reset mechanisms:
+    - `query()` resets `_interrupted` flag at start
+    - `receive_messages()` resets flag for new operations
+- Internal state management:
+  - `_interrupted` flag for tracking interrupt state
+  - `_stream_task` for proper asyncio task cancellation
+  - Interrupt checks in `_receive_once()`, `_auto_execute_loop()`, `receive_messages()`
+  - Clean exception handling for `asyncio.CancelledError`
+- Test coverage: 8 comprehensive tests in `tests/test_interrupt.py` (136 total)
+  - No-operation interrupt (safe when nothing running)
+  - Basic streaming interrupt
+  - Multiple interrupts (idempotency)
+  - Interrupt then query again (reusability)
+  - Context manager integration
+  - Auto-execution interruption
+  - Concurrent interruption from different task
+  - Flag reset verification
+- New example: `examples/interrupt_demo.py` - 5 detailed patterns
+  - Timeout-based interruption (with `asyncio.wait_for`)
+  - Conditional interruption (based on response content)
+  - Auto-execution interruption (stop after N tools)
+  - Concurrent interruption (simulated cancel button)
+  - Interrupt and retry workflow
+
+### Changed
+- Updated README with "Interrupt Capability" section
+  - Quick example showing timeout pattern
+  - 4 common interrupt patterns
+  - "How It Works" explanation
+- Updated project structure documentation to list interrupt example
+- Enhanced `docs/technical-design.md` with interrupt capability section
+  - Added to Client API documentation
+  - Listed in completed features (Phase 6 - Interrupt Capability)
+  - Updated success metrics
+
+### Technical
+- Active stream closure prevents resource leaks and hangs
+- Partial output flushed to history when interrupted mid-stream
+- Incomplete tool calls discarded (not added to history)
+- Clean state transitions: interrupted → reset on next query
+- All 136 tests passing (8 new interrupt tests)
+- No performance impact when not interrupted
+- Works seamlessly with both manual and auto-execution modes
+
+### Design Philosophy
+- **Clean cancellation**: No corrupted state, no resource leaks
+- **User control**: Explicit interruption, no silent timeouts
+- **Reusability**: Client remains valid after interrupt
+- **Safety**: Idempotent and concurrent-safe
+- **Practical**: Solves real timeout and cancellation use cases
+
 ## [0.3.0] - 2025-10-17
 
 ### Added
@@ -254,6 +316,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History
 
+- **0.4.0** - Interrupt capability for clean cancellation (2025-10-17)
+- **0.3.0** - Automatic tool execution (2025-10-17)
 - **0.2.4** - Hooks system for lifecycle monitoring and control (2025-10-17)
 - **0.2.3** - Context management utilities (opt-in, manual) (2025-10-17)
 - **0.2.2** - Tool system with @tool decorator (2025-10-17)
