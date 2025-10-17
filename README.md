@@ -466,7 +466,6 @@ open-agent-sdk/
 ├── docs/
 │   ├── configuration.md
 │   ├── provider-compatibility.md
-│   ├── roadmap.md
 │   └── technical-design.md
 ├── examples/
 │   ├── git_commit_agent.py     # 🌟 Practical: Git commit message generator
@@ -535,7 +534,6 @@ See [docs/provider-compatibility.md](docs/provider-compatibility.md) for detaile
 
 - [docs/technical-design.md](docs/technical-design.md) - Architecture details
 - [docs/configuration.md](docs/configuration.md) - Configuration guide
-- [docs/roadmap.md](docs/roadmap.md) - Current milestones and future work
 - [docs/provider-compatibility.md](docs/provider-compatibility.md) - Provider test results
 - [examples/](examples/) - Usage examples
 
