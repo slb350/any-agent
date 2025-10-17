@@ -104,7 +104,7 @@ async def main():
                         print(f"   Result: {result}")
 
                         # Send result back to agent
-                        client.add_tool_result(
+                        await client.add_tool_result(
                             tool_call_id=block.id,
                             content=result,
                             name=block.name

@@ -150,7 +150,7 @@ async with Client(options) as client:
             result = await tool.execute(block.input)
 
             # Return result to agent
-            client.add_tool_result(block.id, result)
+            await client.add_tool_result(block.id, result)
 
             # Continue conversation
             await client.query("")
@@ -244,6 +244,159 @@ pip install open-agent-sdk[context]  # Adds tiktoken
 Without `tiktoken`, falls back to character-based approximation (~75-85% accurate).
 
 See `examples/context_management.py` for complete patterns and usage.
+
+## Lifecycle Hooks
+
+Monitor and control agent behavior at key execution points with Pythonic lifecycle hooks—no subprocess overhead or JSON protocols.
+
+### Quick Example
+
+```python
+from open_agent import (
+    AgentOptions, Client,
+    PreToolUseEvent, PostToolUseEvent, UserPromptSubmitEvent,
+    HookDecision,
+    HOOK_PRE_TOOL_USE, HOOK_POST_TOOL_USE, HOOK_USER_PROMPT_SUBMIT
+)
+
+# Security gate - block dangerous operations
+async def security_gate(event: PreToolUseEvent) -> HookDecision | None:
+    if event.tool_name == "delete_file":
+        return HookDecision(
+            continue_=False,
+            reason="Delete operations require approval"
+        )
+    return None  # Allow by default
+
+# Audit logger - track all tool executions
+async def audit_logger(event: PostToolUseEvent) -> None:
+    print(f"Tool executed: {event.tool_name} -> {event.tool_result}")
+    return None
+
+# Input sanitizer - validate user prompts
+async def sanitize_input(event: UserPromptSubmitEvent) -> HookDecision | None:
+    if "DELETE" in event.prompt.upper():
+        return HookDecision(
+            continue_=False,
+            reason="Dangerous keywords detected"
+        )
+    return None
+
+# Register hooks in AgentOptions
+options = AgentOptions(
+    system_prompt="You are a helpful assistant",
+    model="qwen2.5-32b-instruct",
+    base_url="http://localhost:1234/v1",
+    tools=[my_file_tool, my_search_tool],
+    hooks={
+        HOOK_PRE_TOOL_USE: [security_gate],
+        HOOK_POST_TOOL_USE: [audit_logger],
+        HOOK_USER_PROMPT_SUBMIT: [sanitize_input],
+    }
+)
+
+async with Client(options) as client:
+    await client.query("Write to /etc/config")  # UserPromptSubmit fires
+    async for block in client.receive_messages():
+        if isinstance(block, ToolUseBlock):  # PreToolUse fires
+            result = await tool.execute(block.input)
+            await client.add_tool_result(block.id, result)  # PostToolUse fires
+```
+
+### Hook Types
+
+**PreToolUse** - Fires before tool execution (or yielding to user)
+- **Block operations**: Return `HookDecision(continue_=False, reason="...")`
+- **Modify inputs**: Return `HookDecision(modified_input={...}, reason="...")`
+- **Allow**: Return `None`
+
+**PostToolUse** - Fires after tool result added to history
+- **Observational only** (tool already executed)
+- Use for audit logging, metrics, result validation
+- Return `None` (decision ignored for PostToolUse)
+
+**UserPromptSubmit** - Fires before sending prompt to API
+- **Block prompts**: Return `HookDecision(continue_=False, reason="...")`
+- **Modify prompts**: Return `HookDecision(modified_prompt="...", reason="...")`
+- **Allow**: Return `None`
+
+### Common Patterns
+
+**Pattern 1: Redirect to Sandbox**
+
+```python
+async def redirect_to_sandbox(event: PreToolUseEvent) -> HookDecision | None:
+    """Redirect file operations to safe directory."""
+    if event.tool_name == "file_writer":
+        path = event.tool_input.get("path", "")
+        if not path.startswith("/tmp/"):
+            safe_path = f"/tmp/sandbox/{path.lstrip('/')}"
+            return HookDecision(
+                modified_input={"path": safe_path, "content": event.tool_input.get("content", "")},
+                reason="Redirected to sandbox"
+            )
+    return None
+```
+
+**Pattern 2: Compliance Audit Log**
+
+```python
+audit_log = []
+
+async def compliance_logger(event: PostToolUseEvent) -> None:
+    """Log all tool executions for compliance."""
+    audit_log.append({
+        "timestamp": datetime.now(),
+        "tool": event.tool_name,
+        "input": event.tool_input,
+        "result": str(event.tool_result)[:100],
+        "user": get_current_user()
+    })
+    return None
+```
+
+**Pattern 3: Safety Instructions**
+
+```python
+async def add_safety_warning(event: UserPromptSubmitEvent) -> HookDecision | None:
+    """Add safety instructions to risky prompts."""
+    if "write" in event.prompt.lower() or "delete" in event.prompt.lower():
+        safe_prompt = event.prompt + " (Please confirm this is safe before proceeding)"
+        return HookDecision(
+            modified_prompt=safe_prompt,
+            reason="Added safety warning"
+        )
+    return None
+```
+
+### Hook Execution Flow
+
+- Hooks run **sequentially** in the order registered
+- **First non-None decision wins** (short-circuit behavior)
+- Hooks run **inline on event loop** (spawn tasks for heavy work)
+- Works with both **Client** and **query()** function
+
+### Breaking Change (v0.2.4)
+
+`Client.add_tool_result()` is now async to support PostToolUse hooks:
+
+```python
+# Old (v0.2.3 and earlier)
+client.add_tool_result(tool_id, result)
+
+# New (v0.2.4+)
+await client.add_tool_result(tool_id, result)
+```
+
+### Why Hooks?
+
+- **Security gates**: Block dangerous operations before they execute
+- **Audit logging**: Track all tool executions for compliance
+- **Input validation**: Sanitize user prompts before processing
+- **Monitoring**: Observe agent behavior in production
+- **Control flow**: Modify tool inputs or redirect operations
+
+See `examples/hooks_example.py` for 4 comprehensive patterns (security, audit, sanitization, combined).
 
 ## 🚀 Practical Examples
 
@@ -452,6 +605,7 @@ class AgentOptions:
     model: str                              # Model name (required)
     base_url: str                           # OpenAI-compatible endpoint URL (required)
     tools: list[Tool] = []                  # Tool instances for function calling
+    hooks: dict[str, list[HookHandler]] = None  # Lifecycle hooks for monitoring/control
     max_turns: int = 1                      # Max conversation turns
     max_tokens: int | None = 4096           # Tokens to generate (None uses provider default)
     temperature: float = 0.7                # Sampling temperature
@@ -512,6 +666,54 @@ class Tool:
 - Simple: `{"param": str, "count": int}` - All parameters required
 - JSON Schema: Full schema with `type`, `properties`, `required`, etc.
 
+### Hooks System
+
+```python
+# Event types
+@dataclass
+class PreToolUseEvent:
+    tool_name: str
+    tool_input: dict[str, Any]
+    tool_use_id: str
+    history: list[dict[str, Any]]
+
+@dataclass
+class PostToolUseEvent:
+    tool_name: str
+    tool_input: dict[str, Any]
+    tool_result: Any
+    tool_use_id: str
+    history: list[dict[str, Any]]
+
+@dataclass
+class UserPromptSubmitEvent:
+    prompt: str
+    history: list[dict[str, Any]]
+
+# Hook decision
+@dataclass
+class HookDecision:
+    continue_: bool = True
+    modified_input: dict[str, Any] | None = None
+    modified_prompt: str | None = None
+    reason: str | None = None
+
+# Hook handler signature
+HookHandler = Callable[[HookEvent], Awaitable[HookDecision | None]]
+
+# Hook constants
+HOOK_PRE_TOOL_USE = "pre_tool_use"
+HOOK_POST_TOOL_USE = "post_tool_use"
+HOOK_USER_PROMPT_SUBMIT = "user_prompt_submit"
+```
+
+**Hook behavior:**
+- Return `None` to allow by default
+- Return `HookDecision(continue_=False)` to block
+- Return `HookDecision(modified_input={...})` to modify (PreToolUse)
+- Return `HookDecision(modified_prompt="...")` to modify (UserPromptSubmit)
+- Raise exception to abort entirely
+
 ## Recommended Models
 
 **Local models** (LM Studio, Ollama, llama.cpp):
@@ -542,6 +744,7 @@ open-agent-sdk/
 │   ├── client.py          # Streaming query(), Client, tool helper
 │   ├── config.py          # Env/provider helpers
 │   ├── context.py         # Token estimation and truncation utilities
+│   ├── hooks.py           # Lifecycle hooks (PreToolUse, PostToolUse, UserPromptSubmit)
 │   ├── tools.py           # Tool decorator and schema conversion
 │   ├── types.py           # Dataclasses for options and blocks
 │   └── utils.py           # OpenAI client + ToolCallAggregator
@@ -556,6 +759,7 @@ open-agent-sdk/
 │   ├── simple_tool.py          # Minimal tool usage example
 │   ├── tool_use_agent.py       # Complete tool use patterns
 │   ├── context_management.py   # Manual history management patterns
+│   ├── hooks_example.py        # Lifecycle hooks patterns (security, audit, sanitization)
 │   ├── simple_lmstudio.py      # Basic usage with LM Studio
 │   ├── ollama_chat.py          # Multi-turn chat example
 │   ├── config_examples.py      # Configuration patterns
@@ -567,6 +771,7 @@ open-agent-sdk/
 │   ├── test_client.py
 │   ├── test_config.py
 │   ├── test_context.py            # Context utilities (token estimation, truncation)
+│   ├── test_hooks.py              # Lifecycle hooks (PreToolUse, PostToolUse, UserPromptSubmit)
 │   ├── test_query.py
 │   ├── test_tools.py              # Tool decorator and schema conversion
 │   └── test_utils.py
@@ -588,6 +793,7 @@ open-agent-sdk/
 - `config_examples.py` – Comprehensive reference: provider shortcuts, priority, and all config patterns
 - `ollama_chat.py` – Multi-turn chat loop with Ollama, including tool-call logging
 - `context_management.py` – Manual history management patterns (stateless, truncation, token monitoring, RAG-lite)
+- `hooks_example.py` – Lifecycle hooks patterns (security gates, audit logging, input sanitization, combined)
 
 ### Integration Tests
 Located in `tests/integration/`:

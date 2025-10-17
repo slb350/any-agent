@@ -155,7 +155,7 @@ Use tools when appropriate to answer questions.""",
                         print(f"✓ {tool_call.name} returned: {result}")
 
                         # Feed result back to model
-                        client.add_tool_result(
+                        await client.add_tool_result(
                             tool_call.id,
                             result,
                             name=tool_call.name  # Optional but helpful
@@ -163,10 +163,10 @@ Use tools when appropriate to answer questions.""",
                     except Exception as e:
                         error_result = {"error": str(e)}
                         print(f"✗ {tool_call.name} failed: {e}")
-                        client.add_tool_result(tool_call.id, error_result)
+                        await client.add_tool_result(tool_call.id, error_result)
                 else:
                     print(f"✗ Unknown tool: {tool_call.name}")
-                    client.add_tool_result(
+                    await client.add_tool_result(
                         tool_call.id,
                         {"error": f"Unknown tool: {tool_call.name}"}
                     )
@@ -198,7 +198,7 @@ async def execute_tools_helper(
     for tool_call in tool_calls:
         if tool_call.name not in tool_registry:
             error = {"error": f"Unknown tool: {tool_call.name}"}
-            client.add_tool_result(tool_call.id, error)
+            await client.add_tool_result(tool_call.id, error)
             results.append(error)
             continue
 
@@ -209,7 +209,7 @@ async def execute_tools_helper(
             result = await tool_func(**tool_call.input)
 
             # Add to conversation history
-            client.add_tool_result(
+            await client.add_tool_result(
                 tool_call.id,
                 result,
                 name=tool_call.name
@@ -219,7 +219,7 @@ async def execute_tools_helper(
 
         except Exception as e:
             error = {"error": str(e), "tool": tool_call.name}
-            client.add_tool_result(tool_call.id, error)
+            await client.add_tool_result(tool_call.id, error)
             results.append(error)
 
     return results

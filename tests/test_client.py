@@ -167,7 +167,8 @@ async def test_client_receive_messages_without_query():
             pass
 
 
-def test_client_add_tool_result_with_string():
+@pytest.mark.asyncio
+async def test_client_add_tool_result_with_string():
     """Tool results should be appended as tool messages"""
     options = AgentOptions(
         system_prompt="Test",
@@ -188,7 +189,7 @@ def test_client_add_tool_result_with_string():
         ]
     })
 
-    client.add_tool_result("call_123", "result text")
+    await client.add_tool_result("call_123", "result text")
 
     tool_message = client.message_history[-1]
     assert tool_message["role"] == "tool"
@@ -196,7 +197,8 @@ def test_client_add_tool_result_with_string():
     assert tool_message["content"] == "result text"
 
 
-def test_client_add_tool_result_with_dict():
+@pytest.mark.asyncio
+async def test_client_add_tool_result_with_dict():
     """Dict content should be JSON-encoded"""
     options = AgentOptions(
         system_prompt="Test",
@@ -217,7 +219,7 @@ def test_client_add_tool_result_with_dict():
         ]
     })
 
-    client.add_tool_result("call_abc", {"foo": "bar"})
+    await client.add_tool_result("call_abc", {"foo": "bar"})
 
     tool_message = client.message_history[-1]
     assert tool_message["role"] == "tool"
@@ -227,7 +229,8 @@ def test_client_add_tool_result_with_dict():
     assert json.loads(tool_message["content"]) == {"foo": "bar"}
 
 
-def test_client_add_tool_result_unknown_id():
+@pytest.mark.asyncio
+async def test_client_add_tool_result_unknown_id():
     """Unknown tool_call_id should raise ValueError"""
     options = AgentOptions(
         system_prompt="Test",
@@ -238,10 +241,11 @@ def test_client_add_tool_result_unknown_id():
     client = Client(options)
 
     with pytest.raises(ValueError, match="Unknown tool_call_id"):
-        client.add_tool_result("missing", "data")
+        await client.add_tool_result("missing", "data")
 
 
-def test_client_add_tool_result_invalid_content_type():
+@pytest.mark.asyncio
+async def test_client_add_tool_result_invalid_content_type():
     """Unsupported content types should raise TypeError"""
     options = AgentOptions(
         system_prompt="Test",
@@ -263,10 +267,11 @@ def test_client_add_tool_result_invalid_content_type():
     })
 
     with pytest.raises(TypeError, match="content must be a str, dict, or list"):
-        client.add_tool_result("call_xyz", 123)
+        await client.add_tool_result("call_xyz", 123)
 
 
-def test_client_add_tool_result_with_list_and_name():
+@pytest.mark.asyncio
+async def test_client_add_tool_result_with_list_and_name():
     """List content should be JSON encoded and name propagated."""
     options = AgentOptions(
         system_prompt="Test",
@@ -287,7 +292,7 @@ def test_client_add_tool_result_with_list_and_name():
         ]
     })
 
-    client.add_tool_result("call_list", ["a", "b"], name="lookup")
+    await client.add_tool_result("call_list", ["a", "b"], name="lookup")
 
     tool_message = client.message_history[-1]
     assert tool_message["name"] == "lookup"

@@ -36,6 +36,11 @@ Note: While the SDK targets local/self-hosted endpoints, it also works with loca
 │  ├── context.py      ◄── v0.2.3      │
 │  │   ├── estimate_tokens()           │
 │  │   └── truncate_messages()         │
+│  ├── hooks.py        ◄── v0.2.4      │
+│  │   ├── PreToolUseEvent             │
+│  │   ├── PostToolUseEvent            │
+│  │   ├── UserPromptSubmitEvent       │
+│  │   └── HookDecision                │
 │  └── utils.py                        │
 │      ├── create_client()             │
 │      ├── format_messages()           │
@@ -598,6 +603,378 @@ pip install open-agent-sdk
 - `examples/context_management.py` - 4 detailed usage patterns
 - `docs/context-utilities-design.md` - Full design rationale
 
+### 6. hooks.py - Lifecycle Hooks System (v0.2.4+)
+
+**Philosophy**: "Claude parity, but local-first" - familiar lifecycle hooks without CLI subprocess complexity.
+
+**Why hooks?**
+- **Security gates**: Block dangerous operations before they execute
+- **Audit logging**: Track all tool executions for compliance
+- **Input validation**: Sanitize user prompts before processing
+- **Monitoring**: Observe agent behavior in production
+- **Control flow**: Modify tool inputs or redirect operations
+
+**Design principles**:
+- Pythonic over protocol - dataclasses and coroutines, not JSON messages
+- Inline execution - hooks run synchronously on the event loop
+- Explicit control - users decide what to monitor and when to intervene
+- No blocking I/O - spawn tasks for heavy work
+- Short-circuit behavior - first non-None decision wins
+
+**Core Types**
+
+```python
+from dataclasses import dataclass
+from typing import Any, Callable, Awaitable
+
+@dataclass
+class HookDecision:
+    """
+    Decision from a hook about whether to continue execution.
+
+    Return HookDecision from a hook to:
+    - Block execution (continue_=False)
+    - Modify inputs (modified_input, modified_prompt)
+    - Document reasoning (reason)
+
+    Return None from a hook to allow by default.
+    Raise an exception to abort entirely.
+    """
+    continue_: bool = True
+    modified_input: dict[str, Any] | None = None
+    modified_prompt: str | None = None
+    reason: str | None = None
+
+@dataclass
+class PreToolUseEvent:
+    """Fired before a tool is executed (or yielded to user)."""
+    tool_name: str
+    tool_input: dict[str, Any]
+    tool_use_id: str
+    history: list[dict[str, Any]]
+
+@dataclass
+class PostToolUseEvent:
+    """Fired after a tool result is added to history."""
+    tool_name: str
+    tool_input: dict[str, Any]
+    tool_result: Any
+    tool_use_id: str
+    history: list[dict[str, Any]]
+
+@dataclass
+class UserPromptSubmitEvent:
+    """Fired when user submits a prompt (before API call)."""
+    prompt: str
+    history: list[dict[str, Any]]
+
+# Type alias for hook handlers
+HookHandler = Callable[[HookEvent], Awaitable[HookDecision | None]]
+```
+
+**Hook Constants**
+
+```python
+# Hook names for registration
+HOOK_PRE_TOOL_USE = "pre_tool_use"
+HOOK_POST_TOOL_USE = "post_tool_use"
+HOOK_USER_PROMPT_SUBMIT = "user_prompt_submit"
+```
+
+**Hook Registration**
+
+Hooks are registered in `AgentOptions`:
+
+```python
+from open_agent import (
+    AgentOptions, Client,
+    PreToolUseEvent, HookDecision,
+    HOOK_PRE_TOOL_USE, HOOK_POST_TOOL_USE
+)
+
+async def security_gate(event: PreToolUseEvent) -> HookDecision | None:
+    """Block writes to system directories."""
+    if event.tool_name == "file_writer":
+        path = event.tool_input.get("path", "")
+        if "/etc/" in path or "/sys/" in path:
+            return HookDecision(
+                continue_=False,
+                reason=f"Cannot write to system path: {path}"
+            )
+    return None  # Allow by default
+
+async def audit_logger(event: PostToolUseEvent) -> None:
+    """Log all tool executions."""
+    logging.info(f"Tool executed: {event.tool_name} -> {event.tool_result}")
+    return None  # Observational only
+
+options = AgentOptions(
+    system_prompt="You are a helpful assistant",
+    model="qwen2.5-32b-instruct",
+    base_url="http://localhost:1234/v1",
+    tools=[file_writer, web_search],
+    hooks={
+        HOOK_PRE_TOOL_USE: [security_gate],
+        HOOK_POST_TOOL_USE: [audit_logger],
+    }
+)
+```
+
+**Hook Execution Flow**
+
+Hooks are executed sequentially with short-circuit behavior:
+
+```python
+async def _run_hooks(
+    self,
+    hook_name: str,
+    event: HookEvent
+) -> HookDecision | None:
+    """
+    Run registered hooks for the given event.
+
+    Returns first non-None HookDecision, or None if all allow.
+    Raises if any hook raises an exception.
+    """
+    if not self.options.hooks:
+        return None
+
+    handlers = self.options.hooks.get(hook_name, [])
+    for handler in handlers:
+        decision = await handler(event)
+        if decision is not None:
+            return decision  # Short-circuit on first decision
+
+    return None  # All hooks passed (allow)
+```
+
+**Integration Points**
+
+**1. PreToolUse Hook** - Fires before yielding ToolUseBlock
+
+```python
+# In Client.receive_messages()
+for tool_block in self._aggregator.finalize_tools():
+    # Fire PreToolUse hook
+    event = PreToolUseEvent(
+        tool_name=tool_block.name,
+        tool_input=tool_block.input,
+        tool_use_id=tool_block.id,
+        history=self.message_history.copy()
+    )
+
+    decision = await self._run_hooks(HOOK_PRE_TOOL_USE, event)
+
+    if decision and not decision.continue_:
+        # Hook blocked execution
+        raise RuntimeError(f"Tool use blocked: {decision.reason}")
+
+    if decision and decision.modified_input:
+        # Hook modified input
+        tool_block = ToolUseBlock(
+            id=tool_block.id,
+            name=tool_block.name,
+            input=decision.modified_input
+        )
+
+    assistant_blocks.append(tool_block)
+    yield tool_block
+```
+
+**2. PostToolUse Hook** - Fires after adding tool result to history
+
+```python
+# In Client.add_tool_result()
+async def add_tool_result(
+    self,
+    tool_call_id: str,
+    content: Any,
+    name: str | None = None
+) -> None:
+    """Add tool result to conversation history."""
+    # Add to history
+    self.message_history.append({
+        "role": "tool",
+        "tool_call_id": tool_call_id,
+        "name": name,
+        "content": json.dumps(content) if isinstance(content, dict) else str(content)
+    })
+
+    # Fire PostToolUse hook (observational)
+    if self.options.hooks:
+        # Find original tool call from history
+        tool_input = self._find_tool_input(tool_call_id, name)
+
+        event = PostToolUseEvent(
+            tool_name=name or "unknown",
+            tool_input=tool_input,
+            tool_result=content,
+            tool_use_id=tool_call_id,
+            history=self.message_history.copy()
+        )
+
+        await self._run_hooks(HOOK_POST_TOOL_USE, event)
+```
+
+**3. UserPromptSubmit Hook** - Fires before sending prompt to API
+
+```python
+# In Client.query()
+async def query(self, prompt: str) -> None:
+    """Send a query to the model."""
+    # Fire UserPromptSubmit hook
+    if self.options.hooks:
+        event = UserPromptSubmitEvent(
+            prompt=prompt,
+            history=self.message_history.copy()
+        )
+
+        decision = await self._run_hooks(HOOK_USER_PROMPT_SUBMIT, event)
+
+        if decision and not decision.continue_:
+            raise RuntimeError(f"Prompt blocked: {decision.reason}")
+
+        if decision and decision.modified_prompt:
+            prompt = decision.modified_prompt
+
+    # Build messages and send to API
+    self.message_history.append({"role": "user", "content": prompt})
+    # ... rest of query logic
+```
+
+**Works with Both Client and query()**
+
+Hooks work with both multi-turn Client and single-turn query():
+
+```python
+# Multi-turn Client
+async with Client(options) as client:
+    await client.query("Write to /etc/config")  # UserPromptSubmit fires
+    async for block in client.receive_messages():
+        if isinstance(block, ToolUseBlock):  # PreToolUse fires
+            result = await tool.execute(block.input)
+            await client.add_tool_result(block.id, result)  # PostToolUse fires
+
+# Single-turn query()
+async for msg in query("Write to /etc/config", options):
+    # Same hooks fire inline
+    pass
+```
+
+**Hook Patterns**
+
+**Pattern 1: Security Gates**
+
+```python
+async def security_gate(event: PreToolUseEvent) -> HookDecision | None:
+    """Block dangerous operations."""
+    if event.tool_name == "delete_file":
+        return HookDecision(
+            continue_=False,
+            reason="Delete operations require manual approval"
+        )
+    return None
+```
+
+**Pattern 2: Input Redirection**
+
+```python
+async def redirect_to_sandbox(event: PreToolUseEvent) -> HookDecision | None:
+    """Redirect file operations to sandbox."""
+    if event.tool_name == "file_writer":
+        path = event.tool_input.get("path", "")
+        if not path.startswith("/tmp/"):
+            safe_path = f"/tmp/sandbox/{path.lstrip('/')}"
+            return HookDecision(
+                modified_input={"path": safe_path, "content": event.tool_input.get("content", "")},
+                reason="Redirected to sandbox"
+            )
+    return None
+```
+
+**Pattern 3: Audit Logging**
+
+```python
+audit_log = []
+
+async def audit_logger(event: PostToolUseEvent) -> None:
+    """Log all tool executions for compliance."""
+    audit_log.append({
+        "timestamp": datetime.now(),
+        "tool": event.tool_name,
+        "input": event.tool_input,
+        "result": str(event.tool_result)[:100]
+    })
+    return None  # Observational only
+```
+
+**Pattern 4: Input Sanitization**
+
+```python
+async def sanitize_input(event: UserPromptSubmitEvent) -> HookDecision | None:
+    """Add safety instructions to risky prompts."""
+    if "delete" in event.prompt.lower() or "write" in event.prompt.lower():
+        safe_prompt = event.prompt + " (Please confirm this is safe before proceeding)"
+        return HookDecision(
+            modified_prompt=safe_prompt,
+            reason="Added safety warning"
+        )
+    return None
+```
+
+**Breaking Change**
+
+Making `Client.add_tool_result()` async was required for PostToolUse hook support:
+
+```python
+# Old (v0.2.3 and earlier)
+client.add_tool_result(tool_id, result)
+
+# New (v0.2.4+)
+await client.add_tool_result(tool_id, result)
+```
+
+**Testing**
+
+- 14 comprehensive tests in `tests/test_hooks.py` (118 total tests)
+- PreToolUse tests: allow, block, modify input
+- PostToolUse tests: observe results, logging
+- UserPromptSubmit tests: allow, block, modify prompt
+- Multiple hooks sequencing
+- Exception handling
+- Event data validation
+- Works with both Client and query() contexts
+
+**Examples**
+
+`examples/hooks_example.py` demonstrates 4 comprehensive patterns:
+1. Security gates - blocking/redirecting dangerous operations
+2. Audit logging - compliance tracking
+3. Input sanitization - validation and safety
+4. Combined hooks - layered control
+
+**Design Trade-offs**
+
+**vs Claude SDK**:
+- Claude SDK: Hooks communicate with CLI subprocess via control protocol (JSON messages)
+- Our SDK: Hooks run inline on event loop (Pythonic coroutines)
+- Trade-off: No subprocess overhead, simpler integration, but no CLI interception
+
+**Sequential execution**:
+- Multiple hooks run in order, first non-None decision wins
+- Allows layered control (security → validation → logging)
+- Predictable behavior with clear short-circuit semantics
+
+**Observational PostToolUse**:
+- PostToolUse fires after tool already executed
+- Can log/observe but can't block (tool already ran)
+- Design choice: Tool execution control happens in PreToolUse
+
+**No matcher DSL**:
+- No pattern matching or filtering syntax
+- Handlers branch inside coroutines with if/elif
+- Simpler implementation, more explicit control
+
 ## Design Decisions
 
 ### 1. Streaming by Default
@@ -891,7 +1268,7 @@ OpenAI-style streaming delivers tool calls incrementally. Arguments are streamed
 
 ## Implementation Complexity
 
-**Total LOC**: ~1070 lines (v0.2.3)
+**Total LOC**: ~1200 lines (v0.2.4)
 
 **Breakdown**:
 - types.py: ~100 lines (dataclasses + Tool types)
@@ -899,8 +1276,9 @@ OpenAI-style streaming delivers tool calls incrementally. Arguments are streamed
 - utils.py: ~220 lines (client, formatting, aggregation)
 - client.py: ~265 lines (query + Client class)
 - context.py: ~170 lines (token estimation, truncation) **[v0.2.3]**
+- hooks.py: ~136 lines (event types, hook decision) **[v0.2.4]**
 - __init__.py: ~15 lines (exports)
-- Tests: ~1330 lines (comprehensive coverage)
+- Tests: ~1765 lines (comprehensive coverage)
 
 **v0.2.2 additions** (Tool System):
 - tools.py: 270 lines
@@ -912,6 +1290,12 @@ OpenAI-style streaming delivers tool calls incrementally. Arguments are streamed
 - context.py: 170 lines
 - tests/test_context.py: 230 lines
 - examples/context_management.py: 240 lines
+
+**v0.2.4 additions** (Hooks System):
+- hooks.py: 136 lines
+- tests/test_hooks.py: 435 lines
+- examples/hooks_example.py: 320 lines
+- Updated client.py for hook integration (~30 lines added)
 
 ## Error Handling
 
@@ -942,9 +1326,19 @@ OpenAI-style streaming delivers tool calls incrementally. Arguments are streamed
 - ✅ Context management documentation (4 patterns)
 - ⏸️ **Intentionally NOT building**: Automatic compaction (see design decision #8)
 
+**Completed (v0.2.4)** - Hooks System:
+- ✅ PreToolUse hook - intercept/control tool execution before it happens
+- ✅ PostToolUse hook - monitor tool results after execution
+- ✅ UserPromptSubmit hook - sanitize/validate user input
+- ✅ Pythonic event dataclasses (PreToolUseEvent, PostToolUseEvent, UserPromptSubmitEvent)
+- ✅ HookDecision for controlling execution flow
+- ✅ Sequential execution with short-circuit behavior
+- ✅ Works with both Client and query() contexts
+- ✅ 14 comprehensive tests + 4 example patterns
+- ⏸️ **Intentionally NOT building**: Stop/SubagentStop hooks (not essential for local LLMs)
+
 **Planned (Phase 3+)**:
 - ⏳ Optional automatic tool execution
-- ⏳ Tool execution hooks (PreToolUse, PostToolUse)
 - ⏳ Permission system (allowedTools, disallowedTools)
 - ⏳ Session persistence (SQLite)
 - ⏳ Retry logic with exponential backoff
@@ -1028,8 +1422,20 @@ The technical design succeeds when:
 7. ✅ Lean implementation (170 LOC)
 8. ✅ No silent mutations (explicit control)
 
+**Phase 4 - Hooks System (v0.2.4):**
+1. ✅ PreToolUse/PostToolUse/UserPromptSubmit hooks
+2. ✅ Pythonic event dataclasses (not JSON protocol)
+3. ✅ HookDecision for controlling execution flow
+4. ✅ Sequential execution with short-circuit behavior
+5. ✅ Works with both Client and query() contexts
+6. ✅ 14 comprehensive hook tests (118 total)
+7. ✅ 4 example patterns (security, audit, sanitization, combined)
+8. ✅ Production-ready for logging, monitoring, security
+9. ✅ Breaking change documented (async add_tool_result)
+10. ✅ Local-first design (inline execution, no subprocess)
+
 **Future Phases:**
 - ⏳ Permission system for tool control
-- ⏳ Hook system for lifecycle events (PreToolUse, PostToolUse)
+- ⏳ Optional automatic tool execution
 - ⏳ ThinkingBlock for chain-of-thought
 - ⏳ Message type improvements (SystemMessage, UserMessage)

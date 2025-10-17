@@ -4,6 +4,7 @@ from typing import Literal, TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from .tools import Tool
+    from .hooks import HookHandler
 
 
 @dataclass
@@ -60,6 +61,7 @@ class AgentOptions:
         model: Model name (e.g., "qwen2.5-32b-instruct")
         base_url: OpenAI-compatible endpoint URL
         tools: List of Tool instances for function calling (optional)
+        hooks: Dict of hook event names to handler lists (optional)
         max_turns: Maximum conversation turns
         max_tokens: Tokens to generate (None uses provider default)
         temperature: Sampling temperature
@@ -87,6 +89,7 @@ class AgentOptions:
     model: str
     base_url: str
     tools: list["Tool"] = field(default_factory=list)
+    hooks: dict[str, list["HookHandler"]] | None = None
     max_turns: int = 1
     max_tokens: int | None = 4096  # Default 4096, None uses provider default
     temperature: float = 0.7

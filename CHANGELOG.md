@@ -5,6 +5,66 @@ All notable changes to Open Agent SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.4] - 2025-10-17
+
+### Added
+- **Hooks System** - Pythonic lifecycle hooks for monitoring and controlling agent execution
+  - `PreToolUse` hook - Intercept tool execution before it happens
+    - Block dangerous operations
+    - Modify tool inputs (e.g., redirect paths, sanitize parameters)
+    - Security gates and approval workflows
+  - `PostToolUse` hook - Monitor tool results after execution
+    - Audit logging and compliance tracking
+    - Error monitoring and alerting
+    - Result validation
+  - `UserPromptSubmit` hook - Intercept user input before processing
+    - Input sanitization and validation
+    - Content filtering
+    - Automatic safety instructions
+  - Pythonic design: Clean event dataclasses (`PreToolUseEvent`, `PostToolUseEvent`, `UserPromptSubmitEvent`)
+  - Simple return types: Return `None` to continue, `HookDecision` to control/modify, raise to abort
+  - No JSON envelopes or matcher DSL - handlers branch inside coroutines
+  - Sequential execution: First non-None decision wins (short-circuit behavior)
+  - Works with both `Client` and standalone `query()` function
+- New types exported:
+  - `PreToolUseEvent`, `PostToolUseEvent`, `UserPromptSubmitEvent`, `HookEvent`
+  - `HookDecision`, `HookHandler`
+  - Constants: `HOOK_PRE_TOOL_USE`, `HOOK_POST_TOOL_USE`, `HOOK_USER_PROMPT_SUBMIT`
+- New example: `examples/hooks_example.py` - 4 comprehensive patterns
+  - Security gates (blocking/redirecting dangerous operations)
+  - Audit logging (compliance tracking)
+  - Input sanitization (validation and safety)
+  - Combined hooks (layered control)
+- Test coverage: 14 comprehensive tests in `tests/test_hooks.py` (118 total)
+  - PreToolUse tests (allow, block, modify input)
+  - PostToolUse tests (observe results, logging)
+  - UserPromptSubmit tests (allow, block, modify prompt)
+  - Multiple hooks sequencing
+  - Exception handling
+  - Event data validation
+  - Works with both Client and query() contexts
+
+### Changed
+- `Client.add_tool_result()` is now async (breaking change for PostToolUse hook support)
+  - Old: `client.add_tool_result(tool_id, result)`
+  - New: `await client.add_tool_result(tool_id, result)`
+- Updated all existing tests to use async `add_tool_result()`
+- Updated integration tests for async compatibility
+
+### Technical
+- Hooks run inline on the event loop - spawn tasks for heavy work
+- No blocking I/O in hook handlers (document this for users)
+- Clean integration with existing streaming and tool execution flow
+- All 118 tests passing (14 new hook tests)
+- Local-first design: No CLI subprocess, no control protocol overhead
+
+### Design Philosophy
+- **Claude parity, local-first**: Familiar patterns without CLI complexity
+- **Pythonic over protocol**: Dataclasses and coroutines, not JSON messages
+- **Inline execution**: Hooks run synchronously in the event loop
+- **Explicit control**: Users decide what to monitor and when to intervene
+- **Production-ready**: Essential for logging, monitoring, security in real agents
+
 ## [0.2.3] - 2025-10-17
 
 ### Added
@@ -137,6 +197,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History
 
+- **0.2.4** - Hooks system for lifecycle monitoring and control (2025-10-17)
 - **0.2.3** - Context management utilities (opt-in, manual) (2025-10-17)
 - **0.2.2** - Tool system with @tool decorator (2025-10-17)
 - **0.2.1** - Environment variable consistency fix (2025-10-16)

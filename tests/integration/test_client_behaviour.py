@@ -203,7 +203,7 @@ async def test_client_handles_tool_call_and_results(agent_options, fake_openai):
         assert tool_block.name == "calculate"
         assert tool_block.input == {"expression": "2+2"}
 
-        client.add_tool_result(tool_block.id, {"result": 4}, name=tool_block.name)
+        await client.add_tool_result(tool_block.id, {"result": 4}, name=tool_block.name)
 
         await client.query("Continue with the result.")
         follow_up_blocks = await collect_blocks(client.receive_messages())
