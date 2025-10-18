@@ -5,6 +5,22 @@ All notable changes to Open Agent SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.1] - 2025-10-18
+
+### Fixed
+- **Manual Tool Execution Timing** - Fixed critical bug where `add_tool_result()` would fail immediately after receiving a `ToolUseBlock`
+  - Root cause: Tool calls were added to history *after* yielding blocks to caller
+  - Impact: Manual mode pattern in `examples/calculator_tools.py` would error with "Unknown tool_call_id"
+  - Solution: Move history update before yielding blocks (PR #1 by @Megazig)
+  - Now matches expected pattern: receive `ToolUseBlock` → immediately call `add_tool_result()` → success
+  - Only affects manual mode (`auto_execute_tools=False`), auto mode unaffected
+
+### Technical
+- Changed in `open_agent/client.py:667-679` (manual mode path)
+- Tool call history entry now added before yielding to user
+- Maintains interrupt safety - blocks still discarded if interrupted before yielding
+- All 136 tests passing
+
 ## [0.4.0] - 2025-10-17
 
 ### Added
@@ -316,6 +332,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History
 
+- **0.4.1** - Manual tool execution timing fix (2025-10-18)
 - **0.4.0** - Interrupt capability for clean cancellation (2025-10-17)
 - **0.3.0** - Automatic tool execution (2025-10-17)
 - **0.2.4** - Hooks system for lifecycle monitoring and control (2025-10-17)
