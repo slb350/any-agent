@@ -751,6 +751,31 @@ async for msg in result:
 
 **Value**: Familiar patterns + Less boilerplate + Easy migration
 
+## Why Not LangChain?
+
+Open Agent SDK and LangChain serve different needs:
+
+**Open Agent SDK** is a focused library (~900 LOC) specifically for streaming conversations with local OpenAI-compatible models. Clean API, minimal dependencies (`openai` + `pydantic`), read the entire codebase in 10 minutes.
+
+**LangChain** is a comprehensive framework (100k+ LOC) for building AI applications with 300+ integrations, RAG pipelines, document loaders, vector databases, and complex orchestration.
+
+### When to Use Each
+
+**Use Open Agent SDK when:**
+- Running local models (LM Studio, Ollama, llama.cpp)
+- You want claude-agent-sdk style ergonomics
+- You need minimal dependencies and fast install
+- Building focused agents (copy editor, log analyzer, commit writer)
+- You prefer readable code over framework abstractions
+
+**Use LangChain when:**
+- You need RAG with vector databases (Pinecone, Chroma, etc.)
+- You want pre-built integrations (Google Search, document loaders, etc.)
+- Building complex multi-agent orchestration systems
+- Your team already knows LangChain
+
+**Philosophy**: Open Agent SDK is "do one thing well" (like Flask), LangChain is "batteries included" (like Django). Both are excellent tools for their respective use cases.
+
 ## API Reference
 
 ### AgentOptions
