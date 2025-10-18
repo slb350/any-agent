@@ -1,18 +1,30 @@
 # Open Agent SDK
 
-> Lightweight Python SDK for local/self-hosted LLMs via OpenAI-compatible endpoints
+> Build production-ready AI agents in minutes using your own hardware
+
+**What you can build:**
+- **Copy editors** that analyze manuscripts and track writing patterns
+- **Git commit generators** that write meaningful commit messages
+- **Market analyzers** that research competitors and summarize findings
+- **Code reviewers**, **data analysts**, **research assistants**, and more
+
+**Why local?**
+- **No API costs** - use your hardware, not OpenAI's
+- **Privacy** - your data never leaves your machine
+- **Control** - pick your model (Qwen, Llama, Mistral, etc.)
+
+**How fast?**
+From zero to working agent in under 5 minutes. Familiar patterns (inspired by Claude SDK), batteries-included features (streaming, tools, hooks, auto-execution), and production-ready quality.
 
 [![PyPI version](https://badge.fury.io/py/open-agent-sdk.svg)](https://pypi.org/project/open-agent-sdk/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+---
+
 ## Overview
 
-Open Agent SDK provides a clean, streaming API for working with OpenAI-compatible local model servers, making it easy to build AI agents with your own hardware.
-
-**Use Case**: Build powerful AI agents using local Qwen/Llama/Mistral models without cloud API costs or data privacy concerns.
-
-**Solution**: Drop-in similar API that works with LM Studio, Ollama, llama.cpp, and any OpenAI-compatible endpoint—complete with streaming, tool call aggregation, and a helper for returning tool results back to the model.
+Open Agent SDK provides a clean, streaming API for working with OpenAI-compatible local model servers. Drop-in similar patterns to popular SDKs, working with LM Studio, Ollama, llama.cpp, and any OpenAI-compatible endpoint—complete with streaming, tool call aggregation, hooks, and automatic tool execution.
 
 ## Supported Providers
 
