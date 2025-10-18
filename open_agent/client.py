@@ -667,16 +667,16 @@ class Client:
                     logger.info("Message receive interrupted")
                     return
 
+                # Add assistant response to history with proper structure
+                history_entry = self._format_history_entry(assistant_blocks)
+                self.message_history.append(history_entry)
+
                 # Yield each block to caller
                 for block in assistant_blocks:
                     if self._interrupted:
                         logger.info("Message receive interrupted during yielding")
                         return
                     yield block
-
-                # Add assistant response to history with proper structure
-                history_entry = self._format_history_entry(assistant_blocks)
-                self.message_history.append(history_entry)
 
                 self.turn_count += 1
 
