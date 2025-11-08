@@ -96,6 +96,102 @@ def test_load_config_file_nonexistent():
     assert config == {}
 
 
+def test_load_config_file_valid_yaml(tmp_path):
+    """Test load_config_file reads and parses valid YAML"""
+    pytest.importorskip("yaml")  # Skip if PyYAML not installed
+
+    config_file = tmp_path / "test-config.yaml"
+    config_file.write_text("""
+base_url: http://localhost:1234/v1
+model: qwen2.5-32b-instruct
+temperature: 0.7
+max_tokens: 4096
+""")
+
+    config = load_config_file(config_file)
+
+    assert config["base_url"] == "http://localhost:1234/v1"
+    assert config["model"] == "qwen2.5-32b-instruct"
+    assert config["temperature"] == 0.7
+    assert config["max_tokens"] == 4096
+
+
+def test_load_config_file_empty_yaml(tmp_path):
+    """Test load_config_file returns empty dict for empty YAML file"""
+    pytest.importorskip("yaml")
+
+    config_file = tmp_path / "empty.yaml"
+    config_file.write_text("")
+
+    config = load_config_file(config_file)
+    assert config == {}
+
+
+def test_load_config_file_search_path_priority(tmp_path, monkeypatch):
+    """Test search paths are checked in priority order"""
+    pytest.importorskip("yaml")
+
+    # Change to tmp directory
+    monkeypatch.chdir(tmp_path)
+
+    # Create config in position 2 (should be found but not used)
+    config_dir = tmp_path / ".config" / "open-agent"
+    config_dir.mkdir(parents=True)
+    (config_dir / "config.yaml").write_text("model: from-xdg\n")
+
+    # Create config in position 1 (should win)
+    (tmp_path / "open-agent.yaml").write_text("model: from-project\n")
+
+    config = load_config_file()
+
+    # Project config (priority 1) should win
+    assert config["model"] == "from-project"
+
+
+def test_load_config_file_fallback_to_second_path(tmp_path, monkeypatch):
+    """Test fallback to second search path when first doesn't exist"""
+    pytest.importorskip("yaml")
+
+    monkeypatch.chdir(tmp_path)
+    # Mock home directory to be tmp_path so XDG path resolves correctly
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+
+    # Only create config in position 2 (XDG)
+    config_dir = tmp_path / ".config" / "open-agent"
+    config_dir.mkdir(parents=True)
+    (config_dir / "config.yaml").write_text("model: from-xdg\n")
+
+    config = load_config_file()
+
+    # Should fall back to XDG config
+    assert config["model"] == "from-xdg"
+
+
+def test_config_file_with_env_override_pattern(tmp_path, monkeypatch):
+    """Test documented pattern: config file + env var override"""
+    pytest.importorskip("yaml")
+
+    # Create config file
+    config_file = tmp_path / "config.yaml"
+    config_file.write_text("""
+base_url: http://config-server:1234/v1
+model: config-model
+""")
+
+    # Set environment variable (should override model)
+    monkeypatch.setenv("OPEN_AGENT_MODEL", "env-model")
+
+    # Follow documented pattern
+    config = load_config_file(config_file)
+    model = get_model(config.get("model"))  # Env > config
+    base_url = get_base_url(config.get("base_url"))  # No env, use config
+
+    # Env var should override config for model
+    assert model == "env-model"
+    # Config value should be used for base_url (no env var)
+    assert base_url == "http://config-server:1234/v1"
+
+
 def test_provider_defaults_exist():
     """Test that all expected providers have defaults"""
     assert "lmstudio" in PROVIDER_DEFAULTS

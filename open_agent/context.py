@@ -195,8 +195,8 @@ def estimate_tokens(
     Installing tiktoken:
         ```bash
         pip install open-agent-sdk[context]
-        # or
-        pip install tiktoken>=0.5.0
+        # or directly (see pyproject.toml for current version requirements)
+        pip install tiktoken
         ```
 
     See Also:
@@ -243,6 +243,10 @@ def estimate_tokens(
         # tiktoken not installed - use character-based fallback
         # This is LESS accurate but still useful for rough estimates
         # Approximation: 1 token ≈ 4 characters (for English text)
+        # WARNING: This ratio is calibrated for English. Non-English text
+        # (especially Chinese/Japanese/Korean) may have significantly different
+        # token-to-character ratios. For production multilingual apps, install
+        # tiktoken for accurate counting: pip install open-agent-sdk[context]
 
         # Extract all string values from all messages (recursively)
         total_chars = sum(len(text) for text in _iter_all_strings(messages))

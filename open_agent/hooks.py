@@ -93,6 +93,14 @@ Chaining Multiple Hooks:
     )
     ```
 
+Hook Execution Order:
+- Hooks execute in registration order (list order in AgentOptions.hooks)
+- First hook that returns HookDecision stops the chain (subsequent hooks don't run)
+- Return None to pass control to the next hook
+- If all hooks return None, the operation proceeds normally
+- Example: If security_gate returns HookDecision(continue_=False), neither
+  audit_logger nor parameter_validator will run
+
 Error Handling:
 - If a hook raises an exception, execution is aborted immediately
 - Use exceptions for unrecoverable errors (validation failures, etc.)
@@ -281,7 +289,7 @@ class UserPromptSubmitEvent:
 
             # Remove PII (email addresses)
             import re
-            sanitized = re.sub(r'\b[\w.-]+@[\w.-]+\.\w+\b', '[EMAIL]', event.prompt)
+            sanitized = re.sub(r'\b[\w.-]+@[\w.-]+\.\w+\b', r'[EMAIL]', event.prompt)
             if sanitized != event.prompt:
                 return HookDecision(
                     modified_prompt=sanitized,

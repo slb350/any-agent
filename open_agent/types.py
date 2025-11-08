@@ -355,8 +355,8 @@ class AgentOptions:
         >>> from open_agent.hooks import HOOK_PRE_TOOL_USE, HookDecision
         >>> async def security_gate(event):
         ...     if event.tool_name == "dangerous_tool":
-        ...         return HookDecision(should_proceed=False, reason="Blocked")
-        ...     return HookDecision(should_proceed=True)
+        ...         return HookDecision(continue_=False, reason="Blocked")
+        ...     return None  # Or HookDecision(continue_=True)
         >>> opts = AgentOptions(
         ...     system_prompt="...",
         ...     model="qwen2.5-32b-instruct",

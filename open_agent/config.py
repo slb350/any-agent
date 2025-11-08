@@ -55,11 +55,15 @@ from pathlib import Path
 # To override for custom setup:
 #   export OPEN_AGENT_BASE_URL="http://my-server:8080/v1"
 #   get_base_url(provider="ollama")  -> "http://my-server:8080/v1" (env var wins)
+
+# Default ports verified January 2025. Check provider documentation for current defaults
+# as these may change with updates to external software.
+# Sources: Ollama FAQ (11434), llama.cpp docs (8080), vLLM docs (8000)
 PROVIDER_DEFAULTS = {
-    "lmstudio": "http://localhost:1234/v1",  # LM Studio default local server
-    "ollama": "http://localhost:11434/v1",  # Ollama default API endpoint
-    "llamacpp": "http://localhost:8080/v1",  # llama.cpp server (--api) default
-    "vllm": "http://localhost:8000/v1",  # vLLM default OpenAI-compatible endpoint
+    "lmstudio": "http://localhost:1234/v1",  # LM Studio common default (customizable with --port)
+    "ollama": "http://localhost:11434/v1",  # Ollama default API endpoint (verified)
+    "llamacpp": "http://localhost:8080/v1",  # llama.cpp server default (verified)
+    "vllm": "http://localhost:8000/v1",  # vLLM default OpenAI-compatible endpoint (verified)
 }
 
 
@@ -191,6 +195,7 @@ def get_model(model: Optional[str] = None, *, prefer_env: bool = True) -> Option
             - llama.cpp: Usually "local-model" or server-specific name
             - vLLM: Model path or HuggingFace identifier
             Example: "qwen2.5-32b-instruct"
+            Note: Model names are examples only - availability varies by provider and time
 
         prefer_env (bool): If True (default), OPEN_AGENT_MODEL environment variable
             takes precedence over the model parameter. If False, model parameter
@@ -368,8 +373,8 @@ def load_config_file(config_path: Optional[Path] = None) -> dict:
     PyYAML Installation:
         ```bash
         pip install open-agent-sdk[yaml]
-        # or
-        pip install pyyaml>=6.0
+        # or directly (see pyproject.toml for current version requirements)
+        pip install pyyaml
         ```
 
     Why YAML is Optional:
