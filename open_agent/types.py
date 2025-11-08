@@ -379,11 +379,13 @@ class AgentOptions:
 
     # Tool system configuration
     tools: list["Tool"] = field(default_factory=list)  # Available tools (empty = no function calling)
+
+    # Lifecycle hooks for monitoring and control (MUST be before auto_execute_tools for positional arg compatibility)
+    hooks: dict[str, list["HookHandler"]] | None = None  # Event name -> handler list mapping
+
+    # Tool execution control
     auto_execute_tools: bool = False  # Auto-execute tools (False = manual execution required)
     max_tool_iterations: int = 5  # Max tool call loops to prevent infinite recursion
-
-    # Lifecycle hooks for monitoring and control
-    hooks: dict[str, list["HookHandler"]] | None = None  # Event name -> handler list mapping
 
     # Conversation control
     max_turns: int = 1  # Maximum conversation turns (user + assistant pairs)
