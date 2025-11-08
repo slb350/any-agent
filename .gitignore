@@ -82,6 +82,10 @@ docs/features.md
 *.sqlite
 *.sqlite3
 
+# Claude Code artifacts (local only)
+.claude/
+CODE_REVIEW_REPORT.md
+
 # mypy
 .mypy_cache/
 .dmypy.json
