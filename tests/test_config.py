@@ -257,6 +257,27 @@ def test_load_config_file_explicit_path_only(tmp_path, monkeypatch):
     assert config["model"] == "from-explicit"
 
 
+def test_load_config_file_unreadable_raises(tmp_path):
+    """Test load_config_file raises on permission errors (documented behavior)"""
+    pytest.importorskip("yaml")
+
+    config_file = tmp_path / "unreadable.yaml"
+    config_file.write_text("model: test\n")
+
+    # Remove read permissions
+    import os
+    os.chmod(config_file, 0o000)
+
+    try:
+        # Should raise PermissionError as documented
+        # "File I/O errors are NOT caught - will raise if file exists but unreadable"
+        with pytest.raises(PermissionError):
+            load_config_file(config_file)
+    finally:
+        # Cleanup: restore permissions so file can be deleted
+        os.chmod(config_file, 0o644)
+
+
 def test_provider_defaults_exist():
     """Test that all expected providers have defaults"""
     assert "lmstudio" in PROVIDER_DEFAULTS
