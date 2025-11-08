@@ -369,6 +369,8 @@ def load_config_file(config_path: Optional[Path] = None) -> dict:
         - Returns {} instead of raising on missing PyYAML (graceful degradation)
         - Returns {} instead of None for easier dict.get() usage
         - File I/O errors are NOT caught - will raise if file exists but unreadable
+        - YAML parsing errors are NOT caught - will raise yaml.YAMLError on invalid YAML
+          (fail-fast approach: malformed config is a user error, not a recoverable condition)
 
     PyYAML Installation:
         ```bash

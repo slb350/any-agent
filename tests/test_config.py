@@ -192,6 +192,71 @@ model: config-model
     assert base_url == "http://config-server:1234/v1"
 
 
+def test_load_config_file_invalid_yaml_raises(tmp_path):
+    """Test load_config_file raises yaml.YAMLError on invalid YAML"""
+    yaml = pytest.importorskip("yaml")
+
+    config_file = tmp_path / "bad.yaml"
+    config_file.write_text("""
+base_url: http://localhost:1234/v1
+model: [unclosed bracket
+temperature: 0.7
+""")
+
+    # Invalid YAML should raise, not return {}
+    # This is consistent with documented behavior: errors are not caught
+    with pytest.raises(yaml.YAMLError):
+        load_config_file(config_file)
+
+
+def test_load_config_file_fallback_to_home_dotfile(tmp_path, monkeypatch):
+    """Test fallback to ~/.open-agent.yaml (third search path)"""
+    pytest.importorskip("yaml")
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+
+    # Only create ~/.open-agent.yaml (third priority)
+    (tmp_path / ".open-agent.yaml").write_text("model: from-home-dotfile\n")
+
+    config = load_config_file()
+
+    # Should fall back to home dotfile
+    assert config["model"] == "from-home-dotfile"
+
+
+def test_load_config_file_null_yaml_returns_empty(tmp_path):
+    """Test load_config_file handles YAML null/None properly"""
+    pytest.importorskip("yaml")
+
+    config_file = tmp_path / "null.yaml"
+    config_file.write_text("null\n")  # Valid YAML that returns None
+
+    config = load_config_file(config_file)
+
+    # yaml.safe_load(null) returns None, should convert to {}
+    assert config == {}
+
+
+def test_load_config_file_explicit_path_only(tmp_path, monkeypatch):
+    """Test explicit config_path ignores default search paths"""
+    pytest.importorskip("yaml")
+
+    monkeypatch.chdir(tmp_path)
+
+    # Create default search path with one config
+    (tmp_path / "open-agent.yaml").write_text("model: from-search-path\n")
+
+    # Create explicit path with different config
+    explicit = tmp_path / "custom.yaml"
+    explicit.write_text("model: from-explicit\n")
+
+    config = load_config_file(explicit)
+
+    # Should use explicit path, not search path
+    assert config["model"] == "from-explicit"
+
+
 def test_provider_defaults_exist():
     """Test that all expected providers have defaults"""
     assert "lmstudio" in PROVIDER_DEFAULTS
