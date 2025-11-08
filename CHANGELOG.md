@@ -5,6 +5,48 @@ All notable changes to Open Agent SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.2] - 2025-11-08
+
+### Fixed
+- **Critical Documentation Errors** - Fixed incorrect field name in HookDecision example that would cause runtime errors
+  - Fixed `should_proceed` → `continue_` in types.py example (would raise `TypeError`)
+  - Fixed regex escape sequence warning in hooks.py that will error in Python 3.14+
+- **Breaking Change Prevention** - Restored AgentOptions field order to maintain backwards compatibility
+  - `hooks` field restored to position 4 (was moved to position 6)
+  - Prevents silent breakage of code using positional arguments
+  - Added comment to prevent future reordering
+
+### Added
+- **Comprehensive Documentation** - Enhanced all core modules with detailed docstrings (~2,100 lines)
+  - Module-level design philosophy explanations
+  - Function/class documentation with examples
+  - Inline comments explaining complex logic
+  - Hook execution order and chaining behavior documented
+  - YAML error handling behavior clarified
+- **Test Coverage Improvements** - Added 10 new tests for YAML config loading (142 → 147 tests)
+  - Valid YAML parsing and field extraction
+  - Search path priority verification (project > XDG > home)
+  - Fallback behavior across all 3 search paths
+  - Invalid YAML error handling
+  - Null YAML handling
+  - Permission error behavior
+  - Explicit path isolation
+  - Config file + environment variable override pattern
+
+### Documentation
+- Added language limitation warning for token estimation (English-only calibration)
+- Replaced hard-coded version numbers with references to pyproject.toml
+- Added verification dates and sources for provider default ports
+- Added disclaimers to model name examples (availability varies)
+- Documented hook chaining behavior (first decision stops chain)
+- Clarified YAML error handling (raises yaml.YAMLError on invalid YAML)
+
+### Technical
+- All changes are documentation and test improvements - no functional code changes
+- Zero technical debt remaining (all identified issues fixed)
+- 147/147 tests passing
+- Backwards compatible (field order preserved)
+
 ## [0.4.1] - 2025-10-18
 
 ### Fixed
