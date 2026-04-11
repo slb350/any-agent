@@ -988,17 +988,20 @@ Located in `tests/integration/`:
 
 ## Development Status
 
-**Released v0.1.0** – Core functionality is complete and available on PyPI. Multi-turn conversations, tool monitoring, and streaming are fully implemented.
+**v0.4.2** – Production-ready. Published to PyPI as `open-agent-sdk`.
 
-### Roadmap
+### Completed Features
 
-- [x] Project planning and architecture
-- [x] Core `query()` and `Client` class
-- [x] Tool monitoring + `Client.add_tool_result()` helper
-- [x] Tool use example (`examples/tool_use_agent.py`)
-- [x] PyPI release - Published as `open-agent-sdk`
-- [ ] Provider compatibility matrix expansion
-- [ ] Additional agent examples
+- [x] Core `query()` and `Client` class with streaming
+- [x] Multi-turn conversations with context retention
+- [x] Tool system (`@tool` decorator, auto-execution, manual mode)
+- [x] Lifecycle hooks (PreToolUse, PostToolUse, UserPromptSubmit)
+- [x] Context management utilities (`estimate_tokens`, `truncate_messages`)
+- [x] Interrupt capability (`client.interrupt()`)
+- [x] Automatic tool execution (`auto_execute_tools=True`)
+- [x] YAML config file support
+- [x] Production agent examples (git commit, log analyzer)
+- [x] 147 tests passing
 
 ### Tested Providers
 
@@ -1040,8 +1043,7 @@ Running `pre-commit run --all-files` will execute formatting checks and the inte
 
 - Python 3.10+
 - openai 1.0+ (for AsyncOpenAI client)
-- pydantic 2.0+ (for types, optional)
- - Some servers require a dummy `api_key`; set any non-empty string if needed
+- Some servers require a dummy `api_key`; set any non-empty string if needed
 
 ## License
 
@@ -1054,6 +1056,6 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ---
 
-**Status**: Alpha - API stabilizing, feedback welcome
+**Status**: Production-ready (v0.4.2) — stable API, 147 tests, published on PyPI.
 
 Star ⭐ this repo if you're building AI agents with local models!
