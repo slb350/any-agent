@@ -178,8 +178,14 @@ All OpenAI-compatible endpoints:
 
 ## YAML Config
 
-The SDK loads config from (in priority order):
-1. `$PWD/.open_agent.yml`
-2. `$XDG_CONFIG_HOME/open_agent/config.yml`
-3. `~/.open_agent.yml`
-4. Environment variables (`OPEN_AGENT_MODEL`, `OPEN_AGENT_BASE_URL`, `OPEN_AGENT_API_KEY`)
+The SDK searches for YAML config files (in priority order, first file found wins):
+1. `./open-agent.yaml` (project directory — highest priority)
+2. `~/.config/open-agent/config.yaml` (XDG Base Directory standard)
+3. `~/.open-agent.yaml` (home directory fallback)
+
+PyYAML is an optional dependency (`pip install open-agent-sdk[yaml]` or `pip install pyyaml`). If not installed, config file loading silently returns `{}` and the SDK falls back to code/environment variable configuration.
+
+Environment variables for runtime overrides (take precedence over config files when using `get_model()`/`get_base_url()` helpers):
+- `OPEN_AGENT_MODEL` — override model name
+- `OPEN_AGENT_BASE_URL` — override endpoint URL
+- `OPEN_AGENT_API_KEY` — override API key
