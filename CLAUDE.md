@@ -87,7 +87,9 @@ from open_agent import (
     PreToolUseEvent,         # Hook: before tool execution
     PostToolUseEvent,        # Hook: after tool execution
     UserPromptSubmitEvent,   # Hook: before user input processed
+    HookEvent,               # Union type of all hook events
     HookDecision,            # Hook return type (continue/block/modify)
+    HookHandler,             # Type alias for hook handler functions
     HOOK_PRE_TOOL_USE,
     HOOK_POST_TOOL_USE,
     HOOK_USER_PROMPT_SUBMIT,
@@ -136,7 +138,7 @@ from open_agent.context import estimate_tokens, truncate_messages
 ### Interrupts
 ```python
 # From a separate asyncio task:
-client.interrupt()
+await client.interrupt()
 ```
 
 ## AgentOptions Fields
@@ -147,13 +149,13 @@ client.interrupt()
 | `base_url` | required | OpenAI-compatible endpoint |
 | `system_prompt` | `""` | System message |
 | `max_turns` | `1` | Max conversation turns |
-| `temperature` | `None` | Sampling temperature |
-| `max_tokens` | `None` | Max output tokens |
-| `hooks` | `{}` | Lifecycle hooks dict |
+| `temperature` | `0.7` | Sampling temperature |
+| `max_tokens` | `4096` | Max output tokens |
+| `hooks` | `None` | Lifecycle hooks dict |
 | `tools` | `[]` | Tool definitions |
 | `auto_execute_tools` | `False` | Auto-execute tools |
 | `max_tool_iterations` | `5` | Safety limit for tool loops |
-| `timeout` | `60` | HTTP timeout (seconds) |
+| `timeout` | `60.0` | HTTP timeout (seconds) |
 | `api_key` | `"not-needed"` | API key (local servers don't need one) |
 
 ## Supported Providers
@@ -173,7 +175,7 @@ All OpenAI-compatible endpoints:
 - No breaking changes to `AgentOptions` field order (positional arg compatibility)
 - Manual mode (`auto_execute_tools=False`) must remain the default (backwards compat)
 - `add_tool_result()` is async — always `await` it
-- `_interrupted` flag resets at the start of each `query()` and `receive_messages()` call
+- `_interrupted` flag resets at the start of each `query()` call only (not `receive_messages()`)
 - Context management is intentionally **opt-in** — no silent history mutations
 
 ## YAML Config
