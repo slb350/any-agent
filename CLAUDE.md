@@ -30,12 +30,12 @@ open-agent-sdk/
 │   ├── ollama_chat.py
 │   ├── config_examples.py
 │   └── simple_with_env.py
-├── tests/               # 147 tests (pytest)
+├── tests/               # 147 tests (pytest); conftest.py has shared fake-client fixtures
 ├── docs/
 │   ├── technical-design.md
 │   ├── provider-compatibility.md
 │   └── configuration.md
-├── pyproject.toml       # uv/pip metadata, version = "0.4.2"
+├── pyproject.toml       # pip/setuptools metadata, version = "0.4.2"
 └── CHANGELOG.md
 ```
 
@@ -143,18 +143,20 @@ await client.interrupt()
 
 ## AgentOptions Fields
 
+Fields are listed in dataclass definition order (positional argument order).
+
 | Field | Default | Description |
 |-------|---------|-------------|
-| `model` | required | Model name |
-| `base_url` | required | OpenAI-compatible endpoint |
-| `system_prompt` | `""` | System message |
-| `max_turns` | `1` | Max conversation turns |
-| `temperature` | `0.7` | Sampling temperature |
-| `max_tokens` | `4096` | Max output tokens |
-| `hooks` | `None` | Lifecycle hooks dict |
+| `system_prompt` | required | System instructions defining agent role and behavior |
+| `model` | required | Model name (provider-specific) |
+| `base_url` | required | OpenAI-compatible endpoint (must start with http:// or https://) |
 | `tools` | `[]` | Tool definitions |
+| `hooks` | `None` | Lifecycle hooks dict (must appear before `auto_execute_tools` for positional arg compatibility) |
 | `auto_execute_tools` | `False` | Auto-execute tools |
-| `max_tool_iterations` | `5` | Safety limit for tool loops |
+| `max_tool_iterations` | `5` | Safety limit for tool loops (auto mode only) |
+| `max_turns` | `1` | Max conversation turns |
+| `max_tokens` | `4096` | Max output tokens (None = provider default) |
+| `temperature` | `0.7` | Sampling temperature |
 | `timeout` | `60.0` | HTTP timeout (seconds) |
 | `api_key` | `"not-needed"` | API key (local servers don't need one) |
 
@@ -170,7 +172,7 @@ All OpenAI-compatible endpoints:
 ## Development Rules
 
 - TDD: Write failing tests first, implement, refactor
-- All 147 tests must pass before committing
+- All 147 tests must pass before committing (147 tests collected; run `pytest tests/` to verify)
 - Run `ruff check` and `black` before committing
 - No breaking changes to `AgentOptions` field order (positional arg compatibility)
 - Manual mode (`auto_execute_tools=False`) must remain the default (backwards compat)
@@ -187,7 +189,8 @@ The SDK searches for YAML config files (in priority order, first file found wins
 
 PyYAML is an optional dependency (`pip install open-agent-sdk[yaml]` or `pip install pyyaml`). If not installed, config file loading silently returns `{}` and the SDK falls back to code/environment variable configuration.
 
+**YAML error behavior**: Invalid YAML raises `yaml.YAMLError` (not caught — fail fast). File I/O errors (e.g., permission denied) also raise and are not caught. An empty YAML file returns `{}`.
+
 Environment variables for runtime overrides (take precedence over config files when using `get_model()`/`get_base_url()` helpers):
 - `OPEN_AGENT_MODEL` — override model name
 - `OPEN_AGENT_BASE_URL` — override endpoint URL
-- `OPEN_AGENT_API_KEY` — override API key

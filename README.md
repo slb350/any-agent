@@ -115,7 +115,7 @@ async def main():
             elif isinstance(msg, ToolUseBlock):
                 print(f"Tool used: {msg.name}")
                 tool_result = run_my_tool(msg.name, msg.input)
-                client.add_tool_result(msg.id, tool_result)
+                await client.add_tool_result(msg.id, tool_result)
 
 asyncio.run(main())
 ```
@@ -337,9 +337,12 @@ options = AgentOptions(
 
 async with Client(options) as client:
     await client.query("Write to /etc/config")  # UserPromptSubmit fires
+    # With auto_execute_tools=True, tools run automatically and hooks fire.
+    # With manual mode, handle ToolUseBlock yourself:
     async for block in client.receive_messages():
-        if isinstance(block, ToolUseBlock):  # PreToolUse fires
-            result = await tool.execute(block.input)
+        if isinstance(block, ToolUseBlock):  # PreToolUse fires before execution
+            tool_fn = {"my_file_tool": my_file_tool, "my_search_tool": my_search_tool}[block.name]
+            result = await tool_fn.execute(block.input)
             await client.add_tool_result(block.id, result)  # PostToolUse fires
 ```
 
@@ -698,10 +701,16 @@ options = AgentOptions(
 )
 ```
 
-**Configuration Priority:**
-- Environment variable (default behaviour)
-- Fallback value passed to the config helper
-- Provider default (for `base_url` only)
+**Configuration Priority for `get_base_url(base_url, provider)`:**
+1. Explicit `base_url` parameter (highest priority)
+2. `OPEN_AGENT_BASE_URL` environment variable
+3. Provider default (e.g., `provider="ollama"`)
+4. LM Studio default (`http://localhost:1234/v1`)
+
+**Configuration Priority for `get_model(model, prefer_env=True)`:**
+1. `OPEN_AGENT_MODEL` environment variable (highest, when `prefer_env=True`)
+2. Explicit `model` parameter
+3. Returns `None` if neither is set
 
 Need to force a specific model even when `OPEN_AGENT_MODEL` is set? Call `get_model("model-name", prefer_env=False)` to ignore the environment variable for that lookup.
 
@@ -755,7 +764,7 @@ async for msg in result:
 
 Open Agent SDK and LangChain serve different needs:
 
-**Open Agent SDK** is a focused library (~900 LOC) specifically for streaming conversations with local OpenAI-compatible models. Clean API, minimal dependencies (`openai` + `pydantic`), read the entire codebase in 10 minutes.
+**Open Agent SDK** is a focused library (7 source files) specifically for streaming conversations with local OpenAI-compatible models. Clean API, single required dependency (`openai>=1.0.0`), read the entire codebase in 10 minutes.
 
 **LangChain** is a comprehensive framework (100k+ LOC) for building AI applications with 300+ integrations, RAG pipelines, document loaders, vector databases, and complex orchestration.
 
@@ -865,8 +874,8 @@ class PreToolUseEvent:
 class PostToolUseEvent:
     tool_name: str
     tool_input: dict[str, Any]
-    tool_result: Any
     tool_use_id: str
+    tool_result: Any
     history: list[dict[str, Any]]
 
 @dataclass
@@ -950,6 +959,7 @@ open-agent-sdk/
 │   ├── config_examples.py      # Configuration patterns
 │   └── simple_with_env.py      # Environment variable config
 ├── tests/
+│   ├── conftest.py                # Shared test fixtures (fake OpenAI client, tool chunks)
 │   ├── integration/               # Integration-style tests using fakes
 │   │   └── test_client_behaviour.py  # Streaming, multi-turn, tool flow coverage
 │   ├── test_agent_options.py
@@ -1001,7 +1011,7 @@ Located in `tests/integration/`:
 - [x] Automatic tool execution (`auto_execute_tools=True`)
 - [x] YAML config file support
 - [x] Production agent examples (git commit, log analyzer)
-- [x] 147 tests passing
+- [x] 147 tests (pytest test suite)
 
 ### Tested Providers
 
@@ -1037,7 +1047,7 @@ pip install pre-commit
 pre-commit install
 ```
 
-Running `pre-commit run --all-files` will execute formatting checks and the integration tests (`python -m pytest tests/integration`) before you push changes.
+Running `pre-commit run --all-files` will execute whitespace checks and the full test suite (`pytest tests/ -v --tb=short` via `./venv/bin/pytest`) before you push changes. The pre-commit config expects a `./venv/` virtual environment to be present.
 
 ## Requirements
 
@@ -1056,6 +1066,6 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ---
 
-**Status**: Production-ready (v0.4.2) — stable API, 147 tests, published on PyPI.
+**Status**: Production-ready (v0.4.2) — stable API, 147-test suite, published on PyPI.
 
 Star ⭐ this repo if you're building AI agents with local models!
