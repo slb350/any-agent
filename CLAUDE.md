@@ -31,6 +31,10 @@ open-agent-sdk/
 │   ├── config_examples.py
 │   └── simple_with_env.py
 ├── tests/               # 147 tests (pytest); conftest.py has shared fake-client fixtures
+│   ├── conftest.py      # Shared fake-client fixtures
+│   ├── integration/     # Integration-style tests using fake AsyncOpenAI client
+│   │   └── test_client_behaviour.py
+│   └── test_*.py        # Unit tests per module
 ├── docs/
 │   ├── technical-design.md
 │   ├── provider-compatibility.md
