@@ -826,6 +826,9 @@ async with Client(options: AgentOptions) as client:
     await client.query(prompt: str)
     async for msg in client.receive_messages():
         # Process messages
+
+    # Inspect conversation state
+    meta = client.turn_metadata  # {"turn_count": int, "max_turns": int}
 ```
 
 ### Message Types

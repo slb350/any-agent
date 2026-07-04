@@ -15,7 +15,7 @@ open-agent-sdk/
 │   ├── tools.py         # @tool decorator + Tool class
 │   ├── hooks.py         # Hooks system (PreToolUse, PostToolUse, UserPromptSubmit)
 │   ├── context.py       # Token estimation + truncation utilities (opt-in)
-│   ├── config.py        # get_model(), get_base_url() helpers; YAML config loading
+│   ├── config.py        # get_model(), get_base_url(), load_config_file() helpers; YAML config loading
 │   └── utils.py         # Shared internal utilities
 ├── examples/            # Runnable examples
 │   ├── simple_lmstudio.py
@@ -49,7 +49,7 @@ open-agent-sdk/
 |-----------|------------|
 | **Language** | Python 3.10+ |
 | **HTTP** | openai>=1.0.0 (AsyncOpenAI) |
-| **Optional** | tiktoken (context management), pyyaml (YAML config) |
+| **Optional** | tiktoken (`pip install open-agent-sdk[context]`), pyyaml (`pip install open-agent-sdk[yaml]`) |
 | **Tests** | pytest, pytest-asyncio |
 | **Linting** | ruff |
 | **Formatting** | black |
@@ -143,6 +143,12 @@ from open_agent.context import estimate_tokens, truncate_messages
 ```python
 # From a separate asyncio task:
 await client.interrupt()
+```
+
+### Turn Metadata
+```python
+# Inspect conversation progress
+meta = client.turn_metadata  # {"turn_count": int, "max_turns": int}
 ```
 
 ## AgentOptions Fields
