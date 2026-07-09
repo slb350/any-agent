@@ -353,10 +353,11 @@ async with Client(options) as client:
 - **Modify inputs**: Return `HookDecision(modified_input={...}, reason="...")`
 - **Allow**: Return `None`
 
-**PostToolUse** - Fires after tool result added to history
-- **Observational only** (tool already executed)
+**PostToolUse** - Fires after tool execution, before the result is appended to history
+- **Observational** (tool already executed; history does not yet contain this result when the hook runs)
 - Use for audit logging, metrics, result validation
-- Return `None` (decision ignored for PostToolUse)
+- Return `None` (decision ignored for PostToolUse; `modified_input` is never applied)
+- Only fires via `Client.add_tool_result()` — does **not** fire in the standalone `query()` function
 
 **UserPromptSubmit** - Fires before sending prompt to API
 - **Block prompts**: Return `HookDecision(continue_=False, reason="...")`
@@ -417,7 +418,7 @@ async def add_safety_warning(event: UserPromptSubmitEvent) -> HookDecision | Non
 - Hooks run **sequentially** in the order registered
 - **First non-None decision wins** (short-circuit behavior)
 - Hooks run **inline on event loop** (spawn tasks for heavy work)
-- Works with both **Client** and **query()** function
+- `PreToolUse` and `UserPromptSubmit` work with both **Client** and **query()**; `PostToolUse` only fires through `Client.add_tool_result()`
 
 ### Breaking Change (v0.2.4)
 
@@ -429,6 +430,9 @@ client.add_tool_result(tool_id, result)
 
 # New (v0.2.4+)
 await client.add_tool_result(tool_id, result)
+
+# Optional: include the tool name in the result message
+await client.add_tool_result(tool_id, result, name="my_tool")
 ```
 
 ### Why Hooks?
