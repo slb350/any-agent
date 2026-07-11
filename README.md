@@ -281,7 +281,7 @@ For better token estimation accuracy (optional):
 pip install open-agent-sdk[context]  # Adds tiktoken
 ```
 
-Without `tiktoken`, falls back to character-based approximation (~75-85% accurate).
+Without `tiktoken`, falls back to character-based approximation (~60-80% accurate). Note: the character-based fallback is calibrated for English text. Non-English languages (particularly Chinese, Japanese, and Korean) can have significantly different token-to-character ratios — install `tiktoken` for accurate counting in multilingual applications.
 
 See `examples/context_management.py` for complete patterns and usage.
 
@@ -768,7 +768,7 @@ async for msg in result:
 
 Open Agent SDK and LangChain serve different needs:
 
-**Open Agent SDK** is a focused library (7 source files) specifically for streaming conversations with local OpenAI-compatible models. Clean API, single required dependency (`openai>=1.0.0`), read the entire codebase in 10 minutes.
+**Open Agent SDK** is a focused library (8 source files) specifically for streaming conversations with local OpenAI-compatible models. Clean API, single required dependency (`openai>=1.0.0`), read the entire codebase in 10 minutes.
 
 **LangChain** is a comprehensive framework (100k+ LOC) for building AI applications with 300+ integrations, RAG pipelines, document loaders, vector databases, and complex orchestration.
 
