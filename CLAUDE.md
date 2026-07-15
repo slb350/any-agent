@@ -16,7 +16,7 @@ open-agent-sdk/
 │   ├── hooks.py         # Hooks system (PreToolUse, PostToolUse, UserPromptSubmit)
 │   ├── context.py       # Token estimation + truncation utilities (opt-in)
 │   ├── config.py        # get_model(), get_base_url(), load_config_file() helpers; YAML config loading
-│   └── utils.py         # Shared internal utilities
+│   └── utils.py         # create_client(), format_messages(), format_tools(), ToolCallAggregator
 ├── examples/            # Runnable examples
 │   ├── simple_lmstudio.py
 │   ├── simple_tool.py
