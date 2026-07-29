@@ -189,16 +189,14 @@ class PostToolUseEvent:
     Event object passed to post-tool-use hooks after a tool has executed.
 
     This event is fired immediately after a tool's execute() method completes,
-    whether it succeeded or raised an exception. Handlers can inspect the result
-    and decide whether to:
-    - Allow the result to pass through (return None)
-    - Modify the result before sending to LLM (return HookDecision(modified_input={...}))
-    - Block the result (return HookDecision(continue_=False))
+    whether it succeeded or raised an exception. Handlers are **observational only**:
+    the hook is called for logging, auditing, or side-effects, but the return
+    value is ignored — neither blocking (continue_=False) nor result modification
+    (modified_input) takes effect for PostToolUse hooks. Return None.
 
     Timing:
-        Fired AFTER Tool.execute() completes but BEFORE the result is converted
-        to a ToolResultBlock and sent back to the LLM. This gives you a chance to
-        sanitize outputs, handle errors, or add logging.
+        Fired AFTER Tool.execute() completes. The tool result has already been
+        produced; this hook cannot alter what is sent to the LLM.
 
     Attributes:
         tool_name (str): Name of the tool that was executed.
@@ -221,27 +219,17 @@ class PostToolUseEvent:
 
     Example Handler:
         ```python
-        async def sanitize_results(event: PostToolUseEvent) -> HookDecision | None:
-            # Remove sensitive data from API responses
-            if event.tool_name == "get_user_data":
-                result = event.tool_result
-                if isinstance(result, dict):
-                    sanitized = {k: v for k, v in result.items()
-                                 if k not in ["ssn", "password"]}
-                    return HookDecision(
-                        modified_input=sanitized,  # Note: reuses modified_input field
-                        reason="Removed PII fields"
-                    )
-
-            # Log errors
+        async def audit_results(event: PostToolUseEvent) -> None:
+            # Log tool execution for auditing (return value is ignored)
             if isinstance(event.tool_result, Exception):
                 print(f"Tool {event.tool_name} failed: {event.tool_result}")
-
+            else:
+                print(f"Tool {event.tool_name} succeeded: {event.tool_result}")
             return None
         ```
 
     Note:
-        - modified_input in HookDecision is used to modify the tool_result
+        - PostToolUse hooks are observational only; return values are ignored
         - The is_error flag in ToolResultBlock is set automatically based on
           whether tool_result is an Exception instance
     """
@@ -346,8 +334,8 @@ class HookDecision:
 
         modified_input (dict[str, Any] | None): For PreToolUseEvent hooks, this
             replaces the tool_input that will be passed to Tool.execute().
-            For PostToolUseEvent hooks, this replaces the tool_result that will
-            be sent back to the LLM.
+            Not applicable to PostToolUseEvent hooks — the return value of
+            PostToolUse handlers is ignored entirely.
             If None, no modification occurs. Default: None.
 
         modified_prompt (str | None): For UserPromptSubmitEvent hooks, this replaces
