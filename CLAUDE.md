@@ -142,6 +142,25 @@ from open_agent.context import estimate_tokens, truncate_messages
 
 `estimate_tokens()` uses `tiktoken` when installed; falls back to a character-based approximation (~60-80% accurate) calibrated for English. Non-English text (especially CJK) can have significantly different token-to-character ratios — install `tiktoken` for multilingual accuracy.
 
+### Multi-turn Client (two-step pattern)
+```python
+# query() prepares the stream; receive_messages() consumes it
+await client.query("What's 2+2?")
+async for block in client.receive_messages():
+    if isinstance(block, TextBlock):
+        print(block.text)
+```
+
+Use `async with` for automatic resource cleanup:
+```python
+async with Client(options) as client:
+    await client.query("prompt")
+    async for block in client.receive_messages():
+        ...
+```
+
+Or call `await client.close()` explicitly when done.
+
 ### Interrupts
 ```python
 # From a separate asyncio task:
