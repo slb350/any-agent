@@ -209,6 +209,7 @@ All OpenAI-compatible endpoints:
 - No breaking changes to `AgentOptions` field order (positional arg compatibility)
 - Manual mode (`auto_execute_tools=False`) must remain the default (backwards compat)
 - `add_tool_result()` is async — always `await` it
+- `PostToolUseEvent` handlers are **observation-only** — return values are ignored (no blocking or result modification); use `PreToolUseEvent` for interception
 - `_interrupted` flag resets at the start of each `query()` call only (not `receive_messages()`)
 - Context management is intentionally **opt-in** — no silent history mutations
 

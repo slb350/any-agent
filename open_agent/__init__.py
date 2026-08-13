@@ -36,7 +36,7 @@ from .tools import tool, Tool
 # Lifecycle hooks system for monitoring and controlling agent behavior
 # Hook Events (data classes passed to hook handlers):
 # - PreToolUseEvent: Fired before a tool is executed (can modify/block execution)
-# - PostToolUseEvent: Fired after a tool executes (can modify/block results)
+# - PostToolUseEvent: Fired after a tool executes (observation-only: return value ignored)
 # - UserPromptSubmitEvent: Fired before processing user input (can modify/sanitize input)
 # - HookEvent: Base type for all hook events
 #
