@@ -981,6 +981,8 @@ open-agent-sdk/
 │   └── test_utils.py
 ├── CHANGELOG.md
 ├── pyproject.toml
+├── uv.lock                  # Locked dependency pins for reproducible installs (uv)
+├── .pre-commit-config.yaml  # Pre-commit hooks (whitespace checks + pytest tests/)
 └── README.md
 ```
 

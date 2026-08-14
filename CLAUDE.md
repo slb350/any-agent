@@ -40,6 +40,7 @@ open-agent-sdk/
 │   ├── provider-compatibility.md
 │   └── configuration.md
 ├── pyproject.toml       # pip/setuptools metadata, version = "0.4.2"
+├── uv.lock              # Locked dependency pins for reproducible installs (uv)
 ├── .pre-commit-config.yaml  # Pre-commit hooks (whitespace checks + pytest tests/)
 └── CHANGELOG.md
 ```
