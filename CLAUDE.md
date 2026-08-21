@@ -62,6 +62,8 @@ open-agent-sdk/
 # Install for development
 pip install -e .
 pip install -e ".[dev]"   # includes test/lint deps
+# or with uv (reproduces locked deps from uv.lock)
+uv sync
 
 # Run tests
 pytest tests/
@@ -206,7 +208,7 @@ All OpenAI-compatible endpoints:
 
 - TDD: Write failing tests first, implement, refactor
 - All 147 tests must pass before committing (147 tests collected; run `pytest tests/` to verify)
-- Run `ruff check` and `black` before committing
+- Run `ruff check` and `black` before committing; run `pre-commit install` once after cloning to enable the pre-commit hooks (whitespace checks + full test suite via `./venv/bin/pytest`)
 - No breaking changes to `AgentOptions` field order (positional arg compatibility)
 - Manual mode (`auto_execute_tools=False`) must remain the default (backwards compat)
 - `add_tool_result()` is async — always `await` it
