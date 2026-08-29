@@ -208,11 +208,11 @@ All OpenAI-compatible endpoints:
 
 - TDD: Write failing tests first, implement, refactor
 - All 147 tests must pass before committing (147 tests collected; run `pytest tests/` to verify)
-- Run `ruff check` and `black` before committing; run `pre-commit install` once after cloning to enable the pre-commit hooks (whitespace checks + full test suite via `./venv/bin/pytest`)
+- Run `ruff check` and `black` before committing; install pre-commit first (`pip install pre-commit`), then `pre-commit install` once after cloning to enable the pre-commit hooks (whitespace checks + full test suite via `./venv/bin/pytest`)
 - No breaking changes to `AgentOptions` field order (positional arg compatibility)
 - Manual mode (`auto_execute_tools=False`) must remain the default (backwards compat)
-- `add_tool_result()` is async — always `await` it
-- `PostToolUseEvent` handlers are **observation-only** — return values are ignored (no blocking or result modification); use `PreToolUseEvent` for interception
+- `add_tool_result()` is async — always `await` it; accepts an optional `name` keyword arg: `await client.add_tool_result(tool_id, result, name="my_tool")` (some providers use `name` to associate results)
+- `PostToolUseEvent` handlers are **observation-only** — return values are ignored (no blocking or result modification); use `PreToolUseEvent` for interception. **Note**: `PostToolUseEvent` only fires through `Client.add_tool_result()` and is silently skipped in the standalone `query()` function
 - `_interrupted` flag resets at the start of each `query()` call only (not `receive_messages()`)
 - Context management is intentionally **opt-in** — no silent history mutations
 
@@ -230,3 +230,7 @@ PyYAML is an optional dependency (`pip install open-agent-sdk[yaml]` or `pip ins
 Environment variables for runtime overrides (take precedence over config files when using `get_model()`/`get_base_url()` helpers):
 - `OPEN_AGENT_MODEL` — override model name
 - `OPEN_AGENT_BASE_URL` — override endpoint URL
+
+`get_model()` accepts a `prefer_env=False` kwarg to force a code-specified model even when `OPEN_AGENT_MODEL` is set: `get_model("model-name", prefer_env=False)`.
+
+`get_base_url()` accepts a provider shortcut string: `lmstudio` (→ `http://localhost:1234/v1`), `ollama` (→ `http://localhost:11434/v1`), `llamacpp`, `vllm`.
